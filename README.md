@@ -8,7 +8,7 @@ This repository is an implementation of a novel method for deep archetypal analy
 The ironmarch dataset is a datadump originating from the SQL databases of a fascist internet forum by the same name. It contains all posts and direct messages which were made on the site while it was operational from 2011 until 2017.
 
 ## Methods
-Our work is further development of the method proposed by Keller et al. in the paper titled [Deep Archetypal Analysis](https://arxiv.org/abs/1901.10799). There are two distinct differences to our approach chosen to promote greater interperetability of the resulting latent space.
+Our work is further development of the method proposed by Keller et al. in the paper titled [Deep Archetypal Analysis](https://arxiv.org/abs/1901.10799). There are two distinct differences to our approach chosen to promote greater interpretability of the resulting latent space.
 
 ### Sinkhorn vs Archetypal Loss
 The DeepAA framework uses archetypal loss to promote spread towards the vertices of their embedding simplex. Without this term, the model will not map to these locations of the latent space, and interpreting the resulting archetypes becomes impossible. Instead of introducing this additional term, we utilize the sinkhorn distance, as desribed in the paper [Sinkhorn Distances: Lightspeed Computation of Optimal Transport](https://papers.nips.cc/paper/2013/file/af21d0c97db2e27e13572cbf59eb343d-Paper.pdf) (Cuturi). This distance optimizes toward a uniform distribution on the simplex, fulfilling the role of the archetypal loss, as well as preventing posterior collapse in the encoder network. This allows us to remove KL Divergence, and simplify the hyperparameter space.
