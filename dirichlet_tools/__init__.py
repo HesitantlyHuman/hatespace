@@ -1,1 +1,1 @@
-from permuted_frobenius import permuted_frobenius_norm
+from permuted_matrix_distance import permuted_frobenius_norm
