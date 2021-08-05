@@ -1,1 +1,1 @@
-from permuted_matrix_distance import permuted_frobenius_norm
+from permuted_distribution_measures import permuted_average_l2
