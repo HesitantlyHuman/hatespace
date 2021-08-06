@@ -23,7 +23,7 @@ If there are problems running the code, refer to the list of [required packages]
 
 `$ pip install -r requirements.txt`
 
-First time running the code may take a while. It will be generating and caching embeddings from Google's roBERTa model. Afterwards, you may change the `load_from_cache` flag in the `training.py` file to `True`. If while running the code for the first time, you recieve an error while loading the dataset for the first time, check that this flag is not already `True`, since it will not yet have a cache to load from.
+First time running the code may take a while. It will be generating and caching embeddings from Google's roBERTa model. Afterwards, you may change the `load_from_cache` flag in the `training.py` file to `True`. If while running the code for the first time, you recieve an error while loading the dataset, check that this flag is not already `True`, since it will not yet have a cache to load from.
 
 # Analyzing the Latent Space
 This project is currently under development, and no embeddings are available at this time. Feel free to clone the repo and run the code to generate your own.
