@@ -27,14 +27,18 @@ if __name__ == '__main__':
     model_version = '1.2.0'
 
     #Hyperparameters
-    epochs = 30
+    epochs = 50
     batch_size = 32
     latent_dim_size = 16
     use_context = True
+    #Distribution
     sinkhorn_weight = 1
     concentration_alpha = 1.0
+    #Reconstruction
+    gaussian_std = 0.1
     reconstruction_weight = 10
     softmax = True
+    #Class
     class_weight = 0.05
     use_features = True
     feature_threshold = 0.5
@@ -59,8 +63,9 @@ if __name__ == '__main__':
         preprocessing_function = preprocessing_fn,
         side_information = side_information_loader,
         use_context = use_context,
-        load_from_cache = False,
-        cache_location = 'datasets\caches\cache.pickle')
+        load_from_cache = True,
+        cache_location = 'datasets\caches\cache.pickle'
+    )
     del bert, bert_tokenizer
 
     print('Splitting dataset...')
@@ -112,9 +117,11 @@ if __name__ == '__main__':
             features = batch['features'].to(device).float()
             posts = batch['posts'].to(device).float()
 
+            augmented_posts = posts + torch.normal(mean = 0.0, std = gaussian_std, size = posts.shape).to(device)
+
             optimizer.zero_grad()
 
-            mean, logvar = model.encode(posts)
+            mean, logvar = model.encode(augmented_posts)
             eps = model.reparameterize(mean, logvar)
             logits = model.decoder(eps)
             feature_predictions = model.feature_head(eps)

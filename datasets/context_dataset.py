@@ -64,10 +64,11 @@ class BertPreprocess():
         return {key : value[0][len(value[0]) - self.config['max_length']:] for key, value in tokens.items()}
 
 class IronMarch(Dataset):
-    def __init__(self, dataroot, preprocessing_function, **kwargs):
+    def __init__(self, dataroot, preprocessing_function, transforms = None, **kwargs):
         super(IronMarch, self).__init__()
 
         self.preprocessing_function = preprocessing_function
+        self.transforms = transforms
         self.dataroot = dataroot
         self.data = []
 
