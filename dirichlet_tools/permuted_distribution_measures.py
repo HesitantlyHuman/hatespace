@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.optimize import lsq_linear, linear_sum_assignment
+from scipy.optimize import linear_sum_assignment
 
 def permuted_normalized_frobenius(matrix_a, matrix_b):
     c = np.dot(matrix_a.T, matrix_b)

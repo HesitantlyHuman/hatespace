@@ -13,8 +13,6 @@ from tqdm import tqdm
 
 import geomloss
 
-import side_information
-
 if __name__ == '__main__':
 
     if torch.cuda.is_available():
@@ -54,7 +52,7 @@ if __name__ == '__main__':
     ]
     side_information_loader = SideLoader(side_information_file_paths)
 
-    print('Loading BERT and pre-embedding-...')
+    print('Loading BERT and pre-embedding...')
     bert_tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'roberta-base')
     bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'roberta-base')
     preprocessing_fn = BertPreprocess(bert = bert, tokenizer = bert_tokenizer, device = device)
@@ -62,9 +60,8 @@ if __name__ == '__main__':
         dataroot = 'iron_march_201911',
         preprocessing_function = preprocessing_fn,
         side_information = side_information_loader,
-        use_context = use_context,
-        load_from_cache = True,
-        cache_location = 'datasets\caches\cache.pickle'
+        use_context = False,
+        cache = True
     )
     del bert, bert_tokenizer
 
@@ -74,6 +71,7 @@ if __name__ == '__main__':
     val_loader = DataLoader(dataset, batch_size = batch_size, sampler = val_sampler)
 
     print('Creating VAE model...')
+    #Automate the feature dim here
     model = VAE(latent_dim = latent_dim_size, input_dim = bert_embedding_size * 2, feature_dim = 7, use_softmax = softmax)
     model.to(device)
 

@@ -3,8 +3,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Workflow convenience
+TODO.txt
+
 #Data
 iron_march_201911/
+
+#raytune
+results/
 
 #VS Code
 .vscode

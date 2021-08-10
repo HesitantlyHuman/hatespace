@@ -64,32 +64,34 @@ class BertPreprocess():
         return {key : value[0][len(value[0]) - self.config['max_length']:] for key, value in tokens.items()}
 
 class IronMarch(Dataset):
-    def __init__(self, dataroot, preprocessing_function, transforms = None, **kwargs):
+    def __init__(self, dataroot, preprocessing_function, **kwargs):
         super(IronMarch, self).__init__()
 
         self.preprocessing_function = preprocessing_function
-        self.transforms = transforms
         self.dataroot = dataroot
         self.data = []
 
         self.config = {
             'use_context' : True,
-            'min_poster_posts' : None,
-            'msg_topic_ids' : None,
-            'msg_poster_ids' : None,
-            'msg_ids' : None,
             'side_information' : None,
-            'load_from_cache' : False,
-            'cache_location' : None
+            'cache' : False,
+            'cache_location' : 'datasets\caches'
         }
-
         self.config.update(kwargs)
-        if not self.config['load_from_cache']:
+
+        if not self.config['cache']:
             self._preprocess_data()
-            if not self.config['cache_location'] is None:
-                self.save(self.config['cache_location'])
         else:
-            self._load_preprocessed_data_from_file(self.config['cache_location'])
+            cache_name = ''.join([str(key).replace(' ', '') + str(value).replace(' ', '') if not key == 'cache_location' and not key == 'side_information' else '' for key, value in self.config.items()]) + '.pickle'
+            self.cache_location = os.path.join(self.config['cache_location'], cache_name)
+
+            try:
+                self._load_from_cache(self.cache_location)
+            except FileNotFoundError:
+                self._preprocess_data()
+                if not os.path.exists(self.config['cache_location']):
+                    os.mkdir(self.config['cache_location'])
+                self.save(self.cache_location)
 
     def _preprocess_data(self):
         direct_messages = self._load_posts_csv_file_as_dictionary('core_message_posts.csv', 'msg_topic_id')
@@ -161,9 +163,15 @@ class IronMarch(Dataset):
             except KeyError:
                 raise KeyError(f'msg_post_key {msg_id} was not found in the provided feature set')
 
-    def _load_preprocessed_data_from_file(self, location):
+    def _load_from_cache(self, location):
         with open(location, 'rb') as pickle_file:
             self.data = pickle.load(pickle_file)
+
+    def get_class_proportions(self):
+        class_totals = torch.zeros(size = (len(self.data[0]['features'])))
+        for item in self.data:
+            class_totals += item['features']
+        return class_totals / len(self)
 
     def split_validation(self, validation_split = 0.1, shuffle = True, random_seed = None):
         idx = list(range(len(self)))

@@ -110,10 +110,3 @@ class VAE_Decoder(torch.nn.Module):
 
     def forward(self, x):
         return self.layers(x)
-
-def get_list_of_layers(input_size, output_size, num_layers):
-    step_size = 1 / num_layers
-    size_list = []
-
-    for i in range(num_layers):
-        size_list.append()

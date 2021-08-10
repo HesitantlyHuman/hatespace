@@ -1,3 +1,1 @@
-from datasets.context_dataset import IronMarch
-from datasets.context_dataset import BertPreprocess
-from datasets.message_pairs import IronMarchMessagePairs
+from datasets.context_dataset import IronMarch, BertPreprocess
