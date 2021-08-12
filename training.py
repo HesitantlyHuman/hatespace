@@ -60,7 +60,7 @@ if __name__ == '__main__':
         dataroot = 'iron_march_201911',
         preprocessing_function = preprocessing_fn,
         side_information = side_information_loader,
-        use_context = False,
+        use_context = True,
         cache = True
     )
     del bert, bert_tokenizer

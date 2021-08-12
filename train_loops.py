@@ -1,9 +1,10 @@
 from ray.tune import schedulers
+from ray.tune.progress_reporter import CLIReporter
 import torch
 from torch.utils.data import DataLoader
 
 from datasets import IronMarch, BertPreprocess
-from models import VAE
+from models import VAE, InterpolatedLinearLayers
 from side_information import SideLoader
 
 from torch.optim import Adam
@@ -14,7 +15,7 @@ import geomloss
 
 from ray import tune
 from ray.tune.suggest import ConcurrencyLimiter
-from ray.tune.schedulers import AsyncHyperBandScheduler
+from ray.tune.schedulers import AsyncHyperBandScheduler, ASHAScheduler
 from ray.tune.suggest.optuna import OptunaSearch
 
 from training.search_space import config
@@ -22,13 +23,17 @@ from training.search_space import config
 from filelock import FileLock
 
 bert_embedding_size = 768
+epsilon = 1e-20
+os.environ['TUNE_MAX_LEN_IDENTIFIER'] = '50'
+os.environ["TUNE_PLACEMENT_GROUP_AUTO_DISABLED"] = "1"
 
 def train_sinkhorn_vae(config, checkpoint_dir = None):
     device = config['device']
     if device == 'cuda:0':
         if not torch.cuda.is_available():
-            print('Could not find GPU, reverting to CPU training!')
+            print('Could not find GPU!')
             device = 'cpu'
+        print(f'Using {device}', flush = True)
     
     train_loader, val_loader, class_proportions = get_datasets(config)
 
@@ -36,18 +41,32 @@ def train_sinkhorn_vae(config, checkpoint_dir = None):
         input_dim = bert_embedding_size * 2
     else:
         input_dim = bert_embedding_size
+
+    encoder = InterpolatedLinearLayers(
+        input_dim, 
+        config['model']['latent_dims'] * 2, 
+        num_layers = config['model']['encoder']['depth'], 
+        bias = config['model']['encoder']['bias']
+    )
+    decoder = InterpolatedLinearLayers(
+        config['model']['latent_dims'], 
+        input_dim, 
+        num_layers = config['model']['decoder']['depth'], 
+        bias = config['model']['decoder']['bias']
+    )
+    feature_head = torch.nn.Linear(config['model']['latent_dims'], 7)
     model = VAE(
-        latent_dim = config['model']['latent_dims'],
-        input_dim = input_dim,
-        feature_dim = 7,
+        encoder = encoder,
+        decoder = decoder,
+        feature_head = feature_head,
         use_softmax = config['model']['softmax']
     )
     model.to(device)
 
     optimizer = Adam(
-        parameters = model.parameters(), 
+        model.parameters(), 
         lr = config['adam']['learning_rate'], 
-        betas = (config['adam']['betas'][0], config['adam']['betas'][1])
+        betas = (config['adam']['betas']['zero'], config['adam']['betas']['one'])
     )
 
     if checkpoint_dir:
@@ -61,7 +80,8 @@ def train_sinkhorn_vae(config, checkpoint_dir = None):
         p = config['losses']['distribution']['p'], 
         blur = config['losses']['distribution']['blur'])
     reconstruction_loss_fn = torch.nn.MSELoss()
-    class_loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight = (1 / class_proportions) * config['losses']['class']['bias'])
+    class_weights = (1 / class_proportions) * config['losses']['class']['bias']
+    class_loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight = class_weights.to(device))
 
     dirichlet_distribution = torch.distributions.dirichlet.Dirichlet(torch.tensor([config['losses']['distribution']['alpha'] for i in range(config['model']['latent_dims'])]))
 
@@ -70,7 +90,11 @@ def train_sinkhorn_vae(config, checkpoint_dir = None):
             features = batch['features'].to(device).float()
             posts = batch['posts'].to(device).float()
 
-            augmented_posts = posts + torch.normal(mean = 0.0, std = config['latent_space']['noise']['std'], size = posts.shape).to(device)
+            noise = torch.normal(
+                mean = 0.0, 
+                std = config['latent_space']['noise']['std'], 
+                size = posts.shape).to(device)
+            augmented_posts = posts + noise
 
             optimizer.zero_grad()
 
@@ -131,58 +155,70 @@ def train_sinkhorn_vae(config, checkpoint_dir = None):
                 tn_accum += ((binary_predictions == 0.0) & (features == 0.0)).detach().sum().item()
                 fn_accum += ((binary_predictions == 0.0) & (features == 1.0)).detach().sum().item()
 
+        with tune.checkpoint_dir(epoch_num) as checkpoint_dir:
+            path = os.path.join(checkpoint_dir, 'checkpoint')
+            torch.save((model.state_dict(), optimizer.state_dict()), path)
+        
         yield {
-            'total_loss' : loss_accum / (batch_num + 1),
+            'loss' : loss_accum / (batch_num + 1),
             'class_loss' : class_accum / (batch_num + 1),
             'dist_loss' : dist_accum / (batch_num + 1),
             'recon_loss' : recon_accum / (batch_num + 1),
-            'precision' : tp_accum / (tp_accum + fp_accum),
-            'recall' : tp_accum / (tp_accum + fn_accum),
-            'accuracy' : (tp_accum + tn_accum) / (tp_accum + fn_accum + tn_accum + fn_accum),
-            'specificity' : tn_accum / (tn_accum + fp_accum),
-            'f1_score' : tp_accum / (tp_accum + (0.5))
+            'precision' : tp_accum / (tp_accum + fp_accum + epsilon),
+            'recall' : tp_accum / (tp_accum + fn_accum + epsilon),
+            'accuracy' : (tp_accum + tn_accum) / (tp_accum + fn_accum + tn_accum + fn_accum + epsilon),
+            'specificity' : tn_accum / (tn_accum + fp_accum + epsilon),
+            'f1_score' : tp_accum / (tp_accum + (0.5 * (fp_accum + fn_accum)) + epsilon)
         }
 
 def get_datasets(config):
     with FileLock(config['dataset']['directory'] + '.lock'):
-        side_information_file_paths = config['dataset']['side_information']['file_paths']
-        side_information_loader = SideLoader(side_information_file_paths)
-
-        bert_tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'roberta-base')
-        bert = torch.hub.load('huggingface/pytorch-transformers', 'model', 'roberta-base')
-        preprocessing_fn = BertPreprocess(bert = bert, tokenizer = bert_tokenizer, device = config['device'])
         dataset = IronMarch(
-            dataroot = config['dataset']['directory'],
-            preprocessing_function = preprocessing_fn,
-            side_information = side_information_loader,
+            dataroot = os.path.join(config['dataset']['root_directory'], config['dataset']['directory']),
+            preprocessing_function = None,
+            side_information = None,
             use_context = config['dataset']['context'],
-            cache = True
+            cache = True,
+            cache_location = os.path.join(config['dataset']['root_directory'], 'datasets\caches')
         )
-        del bert, bert_tokenizer
 
         train_sampler, val_sampler = dataset.split_validation(validation_split = 0.1)
-        train_loader = DataLoader(dataset, batch_size = config['dataset']['batch_size'], sampler = train_sampler)
-        val_loader = DataLoader(dataset, batch_size = config['dataset']['batch_size'], sampler = val_sampler)
+        train_loader = DataLoader(dataset, batch_size = config['training']['batch_size'], sampler = train_sampler)
+        val_loader = DataLoader(dataset, batch_size = config['training']['batch_size'], sampler = val_sampler)
 
         class_proportions = dataset.get_class_proportions()
 
     return train_loader, val_loader, class_proportions
     
-def run_optuna_tune(smoke_test = True):
+def run_optuna_tune():
+    config['dataset']['root_directory'] = os.getcwd()
     algorithm = OptunaSearch()
-    algorithm = ConcurrencyLimiter(algorithm, max_concurrent = 6)
-    scheduler = AsyncHyperBandScheduler()
+    algorithm = ConcurrencyLimiter(
+        algorithm,
+        max_concurrent = 4
+    )
+    scheduler = ASHAScheduler(
+        metric ="loss",
+        mode = "min",
+        max_t = 100,
+        grace_period = 1,
+        reduction_factor = 2)
+    reporter = CLIReporter(
+        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score']
+    )
     analysis = tune.run(
         train_sinkhorn_vae,
-        metric = 'total_loss',
-        mode = 'min',
-        search_alg = algorithm,
+        resources_per_trial = {
+            'cpu' : 8,
+            'gpu' : 0
+        },
+        progress_reporter = reporter,
         scheduler = scheduler,
-        num_samples = 2 if smoke_test else 20,
+        num_samples = 10,
         config = config,
         local_dir = 'results',
         fail_fast = True
     )
 
-if __name__ == '__main__':
-    run_optuna_tune(smoke_test = True)
+if __name__ == "__main__":
+    run_optuna_tune()

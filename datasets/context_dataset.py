@@ -154,21 +154,20 @@ class IronMarch(Dataset):
         return content
 
     def _get_example_features(self, msg_id):
-        if self.config['side_information'] is None:
-            return []
-        else:
-            try:
-                features = self.config['side_information'][msg_id]
-                return features
-            except KeyError:
-                raise KeyError(f'msg_post_key {msg_id} was not found in the provided feature set')
+        try:
+            features = []
+            for loader in self.config['side_information']:
+                features.append(loader[msg_id])
+            return features
+        except KeyError:
+            raise KeyError(f'msg_post_key {msg_id} was not found in the provided feature set')
 
     def _load_from_cache(self, location):
         with open(location, 'rb') as pickle_file:
             self.data = pickle.load(pickle_file)
 
     def get_class_proportions(self):
-        class_totals = torch.zeros(size = (len(self.data[0]['features'])))
+        class_totals = torch.zeros(size = (len(self.data[0]['features']),))
         for item in self.data:
             class_totals += item['features']
         return class_totals / len(self)

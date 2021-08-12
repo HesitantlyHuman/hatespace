@@ -1,18 +1,11 @@
 from ray import tune
 
 config = {
-    'training' : {
-        'max_epochs' : 100,
-        'batch_size' : tune.randint(2, 512)
-    }
-}
-
-'''
-config = {
+    'device' : 'cuda:0',
     'losses' : {
         'distribution' : {
             'weight' : 1.0,
-            'metric' : 'sinkhorn',
+            'type' : 'sinkhorn',
             'p' : 2,
             'blur' : 0.05,
             'alpha' : 1.0
@@ -28,7 +21,7 @@ config = {
     },
     'training' : {
         'max_epochs' : 100,
-        'batch_size' : tune.randint(2, 512)
+        'batch_size' : tune.randint(4, 256)
     },
     'dataset' : {
         'directory' : 'iron_march_201911',
@@ -41,27 +34,26 @@ config = {
     },
     'latent_space' : {
         'noise' : {
-            'std' : tune.uniform(0.0, 0.5)
+            'std' : tune.uniform(0.0, 0.2)
         }
     },
     'adam' : {
         'learning_rate' : tune.loguniform(1e-7, 1e-1),
-        'betas' : [
-            tune.loguniform(0.8, 0.99),
-            tune.loguniform(0.9, 0.99999)
-        ]
+        'betas' : {
+            'zero' : 0.9, #tune.loguniform(0.8, 0.99),
+            'one' : 0.999 #tune.loguniform(0.9, 0.99999)
+        }
     },
     'model' : {
         'latent_dims' : 16,
         'encoder' : {
-            'depth' : tune.randint(1, 15),
+            'depth' : tune.randint(3, 12),
             'bias' :  tune.loguniform(0.1, 10)
         },
         'decoder' : {
-            'depth' : tune.randint(1, 20),
+            'depth' : tune.randint(3, 18),
             'bias' :  tune.loguniform(0.1, 10)
         },
         'softmax' : tune.choice([True, False])
     }
 }
-'''

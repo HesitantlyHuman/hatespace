@@ -12,7 +12,7 @@ class SideLoader():
 
         for path in data_paths:
             new_dataframe = pd.read_csv(path)
-            for idx, data_item in new_dataframe.iterrows():
+            for _, data_item in new_dataframe.iterrows():
                 data_id = data_item['msg_id']
                 data_value = np.array(literal_eval(data_item['data'])).astype('float')
                 try:
