@@ -12,7 +12,7 @@ config = {
         },
         'class' : {
             'weight' : 0.05,
-            'bias' : 1.5,
+            'bias' : 1.0,
             'threshold' : 0.5
         },
         'reconstruction' : {
@@ -21,7 +21,7 @@ config = {
     },
     'training' : {
         'max_epochs' : 100,
-        'batch_size' : tune.randint(4, 256)
+        'batch_size' : tune.randint(4, 128)
     },
     'dataset' : {
         'directory' : 'iron_march_201911',
@@ -34,14 +34,14 @@ config = {
     },
     'latent_space' : {
         'noise' : {
-            'std' : tune.uniform(0.0, 0.2)
+            'std' : tune.uniform(0.0, 0.5)
         }
     },
     'adam' : {
-        'learning_rate' : tune.loguniform(1e-7, 1e-1),
+        'learning_rate' : tune.loguniform(1e-7, 1e-2),
         'betas' : {
-            'zero' : 0.9, #tune.loguniform(0.8, 0.99),
-            'one' : 0.999 #tune.loguniform(0.9, 0.99999)
+            'zero' : tune.loguniform(0.8, 0.99),
+            'one' : tune.loguniform(0.9, 0.99999)
         }
     },
     'model' : {
@@ -54,6 +54,6 @@ config = {
             'depth' : tune.randint(3, 18),
             'bias' :  tune.loguniform(0.1, 10)
         },
-        'softmax' : tune.choice([True, False])
+        'softmax' : True
     }
 }

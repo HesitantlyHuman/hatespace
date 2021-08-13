@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import SubsetRandomSampler
 
 from datasets import IronMarch, BertPreprocess
-from models import VAE
+from models import VAE, InterpolatedLinearLayers
 from side_information import SideLoader
 
 from torch.optim import Adam
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     #Reconstruction
     gaussian_std = 0.1
     reconstruction_weight = 10
-    softmax = True
+    softmax = False
     #Class
     class_weight = 0.05
     use_features = True
@@ -71,8 +71,29 @@ if __name__ == '__main__':
     val_loader = DataLoader(dataset, batch_size = batch_size, sampler = val_sampler)
 
     print('Creating VAE model...')
-    #Automate the feature dim here
-    model = VAE(latent_dim = latent_dim_size, input_dim = bert_embedding_size * 2, feature_dim = 7, use_softmax = softmax)
+    if use_context:
+        input_dim = bert_embedding_size * 2
+    else:
+        input_dim = bert_embedding_size
+    encoder = InterpolatedLinearLayers(
+        input_dim, 
+        latent_dim_size * 2, 
+        num_layers = 10, 
+        bias = 1.0
+    )
+    decoder = InterpolatedLinearLayers(
+        latent_dim_size, 
+        input_dim, 
+        num_layers = 13, 
+        bias = 1.0
+    )
+    feature_head = torch.nn.Linear(latent_dim_size, 7)
+    model = VAE(
+        encoder = encoder,
+        decoder = decoder,
+        feature_head = feature_head,
+        use_softmax = softmax
+    )
     model.to(device)
 
     print('Initializing optimizer...')

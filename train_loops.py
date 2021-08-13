@@ -1,4 +1,5 @@
 from ray.tune import schedulers
+from ray.tune import suggest
 from ray.tune.progress_reporter import CLIReporter
 import torch
 from torch.utils.data import DataLoader
@@ -25,23 +26,13 @@ from filelock import FileLock
 bert_embedding_size = 768
 epsilon = 1e-20
 os.environ['TUNE_MAX_LEN_IDENTIFIER'] = '50'
-os.environ["TUNE_PLACEMENT_GROUP_AUTO_DISABLED"] = "1"
+#os.environ["TUNE_PLACEMENT_GROUP_AUTO_DISABLED"] = "1"
 
-def train_sinkhorn_vae(config, checkpoint_dir = None):
-    device = config['device']
-    if device == 'cuda:0':
-        if not torch.cuda.is_available():
-            print('Could not find GPU!')
-            device = 'cpu'
-        print(f'Using {device}', flush = True)
-    
-    train_loader, val_loader, class_proportions = get_datasets(config)
-
+def get_model(config, device):
     if config['dataset']['context']:
         input_dim = bert_embedding_size * 2
     else:
         input_dim = bert_embedding_size
-
     encoder = InterpolatedLinearLayers(
         input_dim, 
         config['model']['latent_dims'] * 2, 
@@ -62,6 +53,18 @@ def train_sinkhorn_vae(config, checkpoint_dir = None):
         use_softmax = config['model']['softmax']
     )
     model.to(device)
+    return model
+
+def train_sinkhorn_vae(config, checkpoint_dir = None):
+    device = config['device']
+    if device == 'cuda:0':
+        if not torch.cuda.is_available():
+            device = 'cpu'
+            print('Could not find GPU!')
+            print(f'Using {device}', flush = True)
+    
+    train_loader, val_loader, class_proportions = get_datasets(config, device)
+    model = get_model(config, device)
 
     optimizer = Adam(
         model.parameters(), 
@@ -166,12 +169,13 @@ def train_sinkhorn_vae(config, checkpoint_dir = None):
             'recon_loss' : recon_accum / (batch_num + 1),
             'precision' : tp_accum / (tp_accum + fp_accum + epsilon),
             'recall' : tp_accum / (tp_accum + fn_accum + epsilon),
-            'accuracy' : (tp_accum + tn_accum) / (tp_accum + fn_accum + tn_accum + fn_accum + epsilon),
+            'accuracy' : (tp_accum + tn_accum) / (tp_accum + fp_accum + tn_accum + fn_accum + epsilon),
             'specificity' : tn_accum / (tn_accum + fp_accum + epsilon),
-            'f1_score' : tp_accum / (tp_accum + (0.5 * (fp_accum + fn_accum)) + epsilon)
+            'f1_score' : tp_accum / (tp_accum + (0.5 * (fp_accum + fn_accum)) + epsilon),
+            'epoch' : epoch_num
         }
 
-def get_datasets(config):
+def get_datasets(config, device):
     with FileLock(config['dataset']['directory'] + '.lock'):
         dataset = IronMarch(
             dataroot = os.path.join(config['dataset']['root_directory'], config['dataset']['directory']),
@@ -195,29 +199,30 @@ def run_optuna_tune():
     algorithm = OptunaSearch()
     algorithm = ConcurrencyLimiter(
         algorithm,
-        max_concurrent = 4
+        max_concurrent = 12
     )
     scheduler = ASHAScheduler(
-        metric ="loss",
-        mode = "min",
         max_t = 100,
-        grace_period = 1,
-        reduction_factor = 2)
+        grace_period = 5,
+        reduction_factor = 2
+    )
     reporter = CLIReporter(
-        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score']
+        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score', 'epoch']
     )
     analysis = tune.run(
         train_sinkhorn_vae,
+        metric = 'loss',
+        mode = 'min',
         resources_per_trial = {
-            'cpu' : 8,
+            'cpu' : 4,
             'gpu' : 0
         },
+        search_alg = algorithm,
         progress_reporter = reporter,
         scheduler = scheduler,
-        num_samples = 10,
+        num_samples = 48,
         config = config,
-        local_dir = 'results',
-        fail_fast = True
+        local_dir = 'results'
     )
 
 if __name__ == "__main__":
