@@ -47,12 +47,12 @@ config = {
     'model' : {
         'latent_dims' : 16,
         'encoder' : {
-            'depth' : tune.randint(3, 12),
-            'bias' :  tune.loguniform(0.1, 10)
+            'depth' : tune.randint(3, 18),
+            'bias' :  tune.loguniform(0.05, 20)
         },
         'decoder' : {
             'depth' : tune.randint(3, 18),
-            'bias' :  tune.loguniform(0.1, 10)
+            'bias' :  tune.loguniform(0.05, 20)
         },
         'softmax' : True
     }

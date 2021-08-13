@@ -199,7 +199,7 @@ def run_optuna_tune():
     algorithm = OptunaSearch()
     algorithm = ConcurrencyLimiter(
         algorithm,
-        max_concurrent = 12
+        max_concurrent = 6
     )
     scheduler = ASHAScheduler(
         max_t = 100,
@@ -220,7 +220,7 @@ def run_optuna_tune():
         search_alg = algorithm,
         progress_reporter = reporter,
         scheduler = scheduler,
-        num_samples = 48,
+        num_samples = 100,
         config = config,
         local_dir = 'results'
     )
