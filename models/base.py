@@ -1,6 +1,4 @@
 import torch
-from torch.utils import data
-from torch.utils.data import DataLoader
 from models.utils import interpolate_from_fractionals, squircle_interpolation
 
 class VAE(torch.nn.Module):

@@ -1,1 +1,1 @@
-from models.vae import VAE, InterpolatedLinearLayers
+from models.base import VAE, InterpolatedLinearLayers

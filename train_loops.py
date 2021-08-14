@@ -1,6 +1,7 @@
 from ray.tune import schedulers
 from ray.tune import suggest
 from ray.tune.progress_reporter import CLIReporter
+from ray.tune.utils.util import date_str
 import torch
 from torch.utils.data import DataLoader
 
@@ -23,37 +24,8 @@ from training.search_space import config
 
 from filelock import FileLock
 
-bert_embedding_size = 768
 epsilon = 1e-20
 os.environ['TUNE_MAX_LEN_IDENTIFIER'] = '50'
-#os.environ["TUNE_PLACEMENT_GROUP_AUTO_DISABLED"] = "1"
-
-def get_model(config, device):
-    if config['dataset']['context']:
-        input_dim = bert_embedding_size * 2
-    else:
-        input_dim = bert_embedding_size
-    encoder = InterpolatedLinearLayers(
-        input_dim, 
-        config['model']['latent_dims'] * 2, 
-        num_layers = config['model']['encoder']['depth'], 
-        bias = config['model']['encoder']['bias']
-    )
-    decoder = InterpolatedLinearLayers(
-        config['model']['latent_dims'], 
-        input_dim, 
-        num_layers = config['model']['decoder']['depth'], 
-        bias = config['model']['decoder']['bias']
-    )
-    feature_head = torch.nn.Linear(config['model']['latent_dims'], 7)
-    model = VAE(
-        encoder = encoder,
-        decoder = decoder,
-        feature_head = feature_head,
-        use_softmax = config['model']['softmax']
-    )
-    model.to(device)
-    return model
 
 def train_sinkhorn_vae(config, checkpoint_dir = None):
     device = config['device']
