@@ -1,12 +1,38 @@
+from filelock import FileLock
+from datasets import IronMarch
 import torch
 import geomloss
 import os
 from ray import tune
+from torch.utils.data.dataloader import DataLoader
 
 from models import VAE, InterpolatedLinearLayers
 
 BERT_embedding_size = 768
 epsilon = 1e-20
+
+class KeepBest(tune.Trainable):
+    def __init__(self, pytorch_trainable, metric = 'loss'):
+        self.trainable = pytorch_trainable
+        self.best = torch.tensor(float('inf'))
+        self.metric = metric
+
+    def setup(self, config):
+        return self.trainable.setup(config)
+
+    def step(self):
+        metrics = self.trainable.step()
+        if metrics[self.metric] < self.best:
+            metrics.update({
+                'should_checkpoint' : True
+            })
+        return metrics
+
+    def save_checkpoint(self, checkpoint_dir):
+        return self.trainable.save_checkpoint(checkpoint_dir)
+
+    def load_checkpoint(self, checkpoint):
+        return self.trainable.load_checkpoint(checkpoint)
 
 class VAEBERT(tune.Trainable):
     def setup(self, config):
@@ -22,7 +48,7 @@ class VAEBERT(tune.Trainable):
             config = self.config,
             parameters = self.model.parameters()
         )
-        self.train_data, self.validation_data, class_proportions = self._get_dataset(
+        self.train_data, self.validation_data, class_proportions = self._get_datasets(
             self.config
         )
         
@@ -36,8 +62,6 @@ class VAEBERT(tune.Trainable):
         
         class_weights = (1 / class_proportions) * config['losses']['class']['bias']
         self.class_loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight = class_weights.to(self.device))
-
-        self.best = torch.float('inf')
 
     def step(self, config):
         self._train(
@@ -154,8 +178,24 @@ class VAEBERT(tune.Trainable):
                 print(f'Using {device}', flush = True)
         return device
 
-    def _get_dataset(self, config):
-        raise NotImplementedError()
+    def _get_datasets(self, config):
+        with FileLock(config['dataset']['directory'] + '.lock'):
+            dataset = IronMarch(
+                dataroot = os.path.join(config['dataset']['root_directory'], config['dataset']['directory']),
+                preprocessing_function = None,
+                side_information = None,
+                use_context = config['dataset']['context'],
+                cache = True,
+                cache_location = os.path.join(config['dataset']['root_directory'], 'datasets\caches')
+            )
+
+            train_sampler, val_sampler = dataset.split_validation(validation_split = 0.1)
+            train_loader = DataLoader(dataset, batch_size = config['training']['batch_size'], sampler = train_sampler)
+            val_loader = DataLoader(dataset, batch_size = config['training']['batch_size'], sampler = val_sampler)
+
+        class_proportions = dataset.get_class_proportions()
+
+        return train_loader, val_loader, class_proportions
 
     def _get_model(self, config, device):
         if config['dataset']['context']:

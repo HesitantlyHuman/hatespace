@@ -17,8 +17,7 @@ results/
 
 # Project save files
 *.pickle
-saved_models/*
-saved_embeddings/*
+embeddings/*
 processed_side_information.csv
 /post_training_analysis/closest_posts/output/*.txt
 
