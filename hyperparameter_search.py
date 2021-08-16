@@ -29,6 +29,7 @@ os.environ['TUNE_MAX_LEN_IDENTIFIER'] = '50'
     
 def run_optuna_tune():
     config['dataset']['root_directory'] = os.getcwd()
+    config['device'] = 'cuda:0'
     algorithm = OptunaSearch()
     algorithm = ConcurrencyLimiter(
         algorithm,
@@ -42,9 +43,8 @@ def run_optuna_tune():
     reporter = CLIReporter(
         metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score', 'epoch']
     )
-
     analysis = tune.run(
-        KeepBest(VAEBERT, metric = 'loss'),
+        VAEBERT,
         metric = 'loss',
         mode = 'min',
         resources_per_trial = {

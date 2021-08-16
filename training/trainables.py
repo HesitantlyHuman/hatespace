@@ -12,7 +12,8 @@ BERT_embedding_size = 768
 epsilon = 1e-20
 
 class KeepBest(tune.Trainable):
-    def __init__(self, pytorch_trainable, metric = 'loss'):
+    def __init__(self, pytorch_trainable, metric = 'loss', *args, **kwargs):
+        super(KeepBest, self).__init__(*args, **kwargs)
         self.trainable = pytorch_trainable
         self.best = torch.tensor(float('inf'))
         self.metric = metric
@@ -63,12 +64,12 @@ class VAEBERT(tune.Trainable):
         class_weights = (1 / class_proportions) * config['losses']['class']['bias']
         self.class_loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight = class_weights.to(self.device))
 
-    def step(self, config):
+    def step(self):
         self._train(
-            config = config
+            config = self.config
         )
         metrics = self._validate(
-            config = config
+            config = self.config
         )
 
         return metrics
