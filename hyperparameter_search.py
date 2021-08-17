@@ -41,7 +41,9 @@ def run_optuna_tune():
         reduction_factor = 2
     )
     reporter = CLIReporter(
-        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score', 'epoch']
+        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score', 'iter'],
+        max_error_rows = 5,
+        sort_by_metric = True
     )
     analysis = tune.run(
         VAEBERT,
@@ -56,7 +58,9 @@ def run_optuna_tune():
         scheduler = scheduler,
         num_samples = 100,
         config = config,
-        local_dir = 'results'
+        local_dir = 'results',
+        keep_checkpoints_num = 1,
+        checkpoint_score_attr = 'accuracy'
     )
 
 if __name__ == "__main__":

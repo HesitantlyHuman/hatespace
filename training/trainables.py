@@ -78,7 +78,15 @@ class VAEBERT(tune.Trainable):
         for batch in self.train_data:
             self.optimizer.zero_grad()
 
-            loss = self._single_batch(batch, config)['loss']
+            features = batch['features'].to(self.device).float()
+            posts = batch['posts'].to(self.device).float()
+
+            noise = torch.normal(
+                mean = 0.0, 
+                std = config['latent_space']['noise']['std'], 
+                size = posts.shape).to(self.device)
+
+            loss = self._single_batch(features, posts + noise, config)['loss']
 
             loss.backward()
             self.optimizer.step()
@@ -96,7 +104,10 @@ class VAEBERT(tune.Trainable):
 
         with torch.no_grad():
             for batch_num, batch in enumerate(self.validation_data):
-                batch_output = self._single_batch(batch, config, noise = False)
+                features = batch['features'].to(self.device).float()
+                posts = batch['posts'].to(self.device).float()
+
+                batch_output = self._single_batch(features, posts, config)
 
                 loss_accum += batch_output['loss'].detach().item()
                 class_accum += batch_output['class'].detach().item()
@@ -123,22 +134,8 @@ class VAEBERT(tune.Trainable):
         }
 
 
-    def _single_batch(self, batch, config, noise = True):
-        features = batch['features'].to(self.device).float()
-        posts = batch['posts'].to(self.device).float()
-
-        if noise:
-            noise = torch.normal(
-                mean = 0.0, 
-                std = config['latent_space']['noise']['std'], 
-                size = posts.shape).to(self.device)
-        else:
-            noise = torch.zeros(
-                size = posts.shape
-            )
-        augmented_posts = posts + noise
-
-        mean, logvar = self.model.encode(augmented_posts)
+    def _single_batch(self, features, posts, config):
+        mean, logvar = self.model.encode(posts)
         eps = self.model.reparameterize(mean, logvar)
         logits = self.model.decoder(eps)
         feature_predictions = self.model.feature_head(eps)
