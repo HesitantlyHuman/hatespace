@@ -38,9 +38,9 @@ config = {
         }
     },
     'adam' : {
-        'learning_rate' : tune.loguniform(1e-7, 1e-2),
+        'learning_rate' : tune.loguniform(1e-7, 5e-3),
         'betas' : {
-            'zero' : tune.loguniform(0.8, 0.99),
+            'zero' : tune.loguniform(0.8, 0.999),
             'one' : tune.loguniform(0.9, 0.99999)
         }
     },

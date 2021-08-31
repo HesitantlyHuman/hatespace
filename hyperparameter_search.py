@@ -37,13 +37,11 @@ def run_optuna_tune():
     )
     scheduler = ASHAScheduler(
         max_t = 100,
-        grace_period = 5,
+        grace_period = 10,
         reduction_factor = 2
     )
     reporter = CLIReporter(
-        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score', 'iter'],
-        max_error_rows = 5,
-        sort_by_metric = True
+        metric_columns = ['loss', 'precision', 'recall', 'accuracy', 'f1_score']
     )
     analysis = tune.run(
         VAEBERT,
@@ -56,9 +54,10 @@ def run_optuna_tune():
         search_alg = algorithm,
         progress_reporter = reporter,
         scheduler = scheduler,
-        num_samples = 100,
+        num_samples = 500,
         config = config,
         local_dir = 'results',
+        checkpoint_freq = 1,
         keep_checkpoints_num = 1,
         checkpoint_score_attr = 'accuracy'
     )
