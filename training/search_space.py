@@ -4,23 +4,23 @@ config = {
     'device' : 'cuda:0',
     'losses' : {
         'distribution' : {
-            'weight' : 1.0,
+            'weight' : 0.0,
             'type' : 'sinkhorn',
             'p' : 2,
             'blur' : 0.05,
             'alpha' : 1.0
         },
         'class' : {
-            'weight' : 0.05,
+            'weight' : 0.0,
             'bias' : 1.0,
-            'threshold' : 0.5
+            'threshold' : 0.0
         },
         'reconstruction' : {
-            'weight' : 10.0
+            'weight' : 1.0
         }
     },
     'training' : {
-        'max_epochs' : 100,
+        'max_epochs' : 25,
         'batch_size' : tune.randint(4, 128)
     },
     'dataset' : {
@@ -34,25 +34,27 @@ config = {
     },
     'latent_space' : {
         'noise' : {
-            'std' : tune.uniform(0.0, 0.5)
+            'std' : tune.uniform(0.1, 0.7)
         }
     },
     'adam' : {
-        'learning_rate' : tune.loguniform(1e-7, 5e-3),
+        'max_learning_rate' : tune.loguniform(3e-4, 3e-2),
+        'weight_decay' : tune.loguniform(0.01, 0.05),
         'betas' : {
-            'zero' : tune.loguniform(0.8, 0.999),
-            'one' : tune.loguniform(0.9, 0.99999)
+            'zero' : tune.loguniform(0.8, 0.9),
+            'one' : tune.loguniform(0.95, 0.995)
         }
     },
     'model' : {
-        'latent_dims' : 16,
+        'latent_dims' : 32,
+        'max_dropout' : tune.loguniform(0.05, 0.5),
         'encoder' : {
             'depth' : tune.randint(3, 18),
-            'bias' :  tune.loguniform(0.05, 20)
+            'bias' :  tune.loguniform(0.1, 10)
         },
         'decoder' : {
             'depth' : tune.randint(3, 18),
-            'bias' :  tune.loguniform(0.05, 20)
+            'bias' :  tune.loguniform(0.1, 10)
         },
         'softmax' : True
     }

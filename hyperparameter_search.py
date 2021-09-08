@@ -2,25 +2,15 @@ from ray.tune import schedulers
 from ray.tune import suggest
 from ray.tune.progress_reporter import CLIReporter
 from ray.tune.utils.util import date_str
-import torch
-from torch.utils.data import DataLoader
-
-from datasets import IronMarch, BertPreprocess
-from models import VAE, InterpolatedLinearLayers
-from side_information import SideLoader
-
-from torch.optim import Adam
 
 import os
-
-import geomloss
 
 from ray import tune
 from ray.tune.suggest import ConcurrencyLimiter
 from ray.tune.schedulers import AsyncHyperBandScheduler, ASHAScheduler
 from ray.tune.suggest.optuna import OptunaSearch
 
-from training import config, VAEBERT, KeepBest
+from training import config, VAEBERT
 
 from filelock import FileLock
 
@@ -36,8 +26,8 @@ def run_optuna_tune():
         max_concurrent = 6
     )
     scheduler = ASHAScheduler(
-        max_t = 100,
-        grace_period = 10,
+        max_t = config['training']['max_epochs'],
+        grace_period = 3,
         reduction_factor = 2
     )
     reporter = CLIReporter(
@@ -54,7 +44,7 @@ def run_optuna_tune():
         search_alg = algorithm,
         progress_reporter = reporter,
         scheduler = scheduler,
-        num_samples = 500,
+        num_samples = 30,
         config = config,
         local_dir = 'results',
         checkpoint_freq = 1,

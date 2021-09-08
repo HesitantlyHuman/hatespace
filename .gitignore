@@ -11,6 +11,7 @@ iron_march_201911/
 
 #raytune
 results/
+experimental_data/
 
 #VS Code
 .vscode

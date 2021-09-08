@@ -31,7 +31,7 @@ class VAE(torch.nn.Module):
         return eps
 
 class InterpolatedLinearLayers(torch.nn.Module):
-    def __init__(self, input_size, output_size, num_layers = 10, bias = 1.0):
+    def __init__(self, input_size, output_size, num_layers = 10, bias = 1.0, max_dropout = 0.2, batch_norm = True):
         super(InterpolatedLinearLayers, self).__init__()
 
         fractions = squircle_interpolation(num_layers, power = bias)
@@ -40,6 +40,9 @@ class InterpolatedLinearLayers(torch.nn.Module):
         for i in range(1, len(layer_sizes) - 1):
             layers.append(torch.nn.Linear(layer_sizes[i - 1], layer_sizes[i]))
             layers.append(torch.nn.ReLU())
+            if batch_norm:
+                layers.append(torch.nn.BatchNorm1d(layer_sizes[i], momentum = 0.01))
+            layers.append(torch.nn.Dropout(max_dropout * (1 - fractions[i])))
         layers.append(torch.nn.Linear(layer_sizes[-2], layer_sizes[-1]))
             
         self.layers = torch.nn.Sequential(

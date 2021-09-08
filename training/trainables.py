@@ -11,30 +11,6 @@ from models import VAE, InterpolatedLinearLayers
 BERT_embedding_size = 768
 epsilon = 1e-20
 
-class KeepBest(tune.Trainable):
-    def __init__(self, pytorch_trainable, metric = 'loss', *args, **kwargs):
-        super(KeepBest, self).__init__(*args, **kwargs)
-        self.trainable = pytorch_trainable
-        self.best = torch.tensor(float('inf'))
-        self.metric = metric
-
-    def setup(self, config):
-        return self.trainable.setup(config)
-
-    def step(self):
-        metrics = self.trainable.step()
-        if metrics[self.metric] < self.best:
-            metrics.update({
-                'should_checkpoint' : True
-            })
-        return metrics
-
-    def save_checkpoint(self, checkpoint_dir):
-        return self.trainable.save_checkpoint(checkpoint_dir)
-
-    def load_checkpoint(self, checkpoint):
-        return self.trainable.load_checkpoint(checkpoint)
-
 class VAEBERT(tune.Trainable):
     def setup(self, config):
         self.config = config
@@ -52,15 +28,18 @@ class VAEBERT(tune.Trainable):
         self.train_data, self.validation_data, class_proportions = self._get_datasets(
             self.config
         )
-        
+        self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            self.optimizer,
+            max_lr = self.config['adam']['max_learning_rate'],
+            steps_per_epoch = len(self.train_data),
+            epochs = self.config['training']['max_epochs'])
+
         self.reconstruction_loss_fn = torch.nn.MSELoss()
-        
         self.distribution_loss_fn = geomloss.SamplesLoss(
             loss = config['losses']['distribution']['type'], 
             p = config['losses']['distribution']['p'], 
             blur = config['losses']['distribution']['blur'])
         self.distribution_sampler = torch.distributions.dirichlet.Dirichlet(torch.tensor([config['losses']['distribution']['alpha'] for i in range(config['model']['latent_dims'])]))
-        
         class_weights = (1 / class_proportions) * config['losses']['class']['bias']
         self.class_loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight = class_weights.to(self.device))
 
@@ -75,6 +54,7 @@ class VAEBERT(tune.Trainable):
         return metrics
 
     def _train(self, config):
+        self.model.train()
         for batch in self.train_data:
             self.optimizer.zero_grad()
 
@@ -90,6 +70,7 @@ class VAEBERT(tune.Trainable):
 
             loss.backward()
             self.optimizer.step()
+            self.scheduler.step()
 
     def _validate(self, config):
         loss_accum = 0
@@ -102,6 +83,7 @@ class VAEBERT(tune.Trainable):
         tn_accum = 0
         fn_accum = 0
 
+        self.model.eval()
         with torch.no_grad():
             for batch_num, batch in enumerate(self.validation_data):
                 features = batch['features'].to(self.device).float()
@@ -160,6 +142,7 @@ class VAEBERT(tune.Trainable):
     def save_checkpoint(self, checkpoint_dir):
         checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pth")
         torch.save((self.model.state_dict(), self.optimizer.state_dict()), checkpoint_path)
+        return checkpoint_dir
 
     def load_checkpoint(self, checkpoint_dir):
         checkpoint_path = os.path.join(checkpoint_dir, "checkpoint.pth")
@@ -204,13 +187,15 @@ class VAEBERT(tune.Trainable):
             input_size = input_dim, 
             output_size = config['model']['latent_dims'] * 2, 
             num_layers = config['model']['encoder']['depth'], 
-            bias = config['model']['encoder']['bias']
+            bias = config['model']['encoder']['bias'],
+            max_dropout = config['model']['max_dropout']
         )
         decoder = InterpolatedLinearLayers(
             config['model']['latent_dims'], 
             input_dim, 
             num_layers = config['model']['decoder']['depth'], 
-            bias = config['model']['decoder']['bias']
+            bias = config['model']['decoder']['bias'],
+            max_dropout = config['model']['max_dropout']
         )
         feature_head = torch.nn.Linear(config['model']['latent_dims'], 7)
         model = VAE(
@@ -223,9 +208,11 @@ class VAEBERT(tune.Trainable):
         return model
 
     def _get_optimizer(self, config, parameters):
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             parameters, 
-            lr = config['adam']['learning_rate'], 
-            betas = (config['adam']['betas']['zero'], config['adam']['betas']['one'])
+            lr = config['adam']['max_learning_rate'], 
+            betas = (config['adam']['betas']['zero'], config['adam']['betas']['one']),
+            weight_decay = config['adam']['weight_decay'],
+            eps = 1e-4
         )
         return optimizer
