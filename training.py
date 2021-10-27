@@ -50,7 +50,7 @@ if __name__ == '__main__':
     
     print('Gathering side information...')
     side_information_file_paths = [
-        'side_information\hate_words\processed_side_information.csv'
+        'side_information/hate_words/processed_side_information.csv'
     ]
     side_information_loader = SideLoader(side_information_file_paths)
 
@@ -63,7 +63,7 @@ if __name__ == '__main__':
         preprocessing_function = preprocessing_fn,
         side_information = side_information_loader,
         use_context = use_context,
-        load_from_cache = True,
+        load_from_cache = False,
         cache_location = 'datasets\caches\cache.pickle'
     )
     del bert, bert_tokenizer
@@ -223,4 +223,4 @@ if __name__ == '__main__':
                     }
                 )
 
-        torch.save(model, f'saved_models\\vae\\sinkhorn\\alpha_{concentration_alpha}_latent_{latent_dim_size}_softmax_{softmax}_version_{model_version}_features_{use_features}')
+        torch.save(model, f'saved_models/vae/sinkhorn/alpha_{concentration_alpha}_latent_{latent_dim_size}_softmax_{softmax}_version_{model_version}_features_{use_features}')
