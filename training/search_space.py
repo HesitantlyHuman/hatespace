@@ -28,7 +28,7 @@ config = {
         'context' : tune.choice([True, False]),
         'side_information' : {
             'file_paths' : [
-                'side_information\hate_words\processed_side_information.csv'
+                'side_information/hate_words/processed_side_information.csv'
             ]
         }
     },

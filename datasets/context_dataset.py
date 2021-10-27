@@ -75,7 +75,7 @@ class IronMarch(Dataset):
             'use_context' : True,
             'side_information' : None,
             'cache' : False,
-            'cache_location' : 'datasets\caches'
+            'cache_location' : 'datasets/caches'
         }
         self.config.update(kwargs)
 

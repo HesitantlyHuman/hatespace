@@ -8,7 +8,7 @@ import os
 from ray import tune
 from ray.tune.suggest import ConcurrencyLimiter
 from ray.tune.schedulers import AsyncHyperBandScheduler, ASHAScheduler
-from ray.tune.suggest.bayesopt import BayesOptSearch
+from ray.tune.suggest.hyperopt import HyperOptSearch
 
 from training import config, VAEBERT
 
@@ -20,9 +20,7 @@ os.environ['TUNE_MAX_LEN_IDENTIFIER'] = '50'
 def run_optuna_tune():
     config['dataset']['root_directory'] = os.getcwd()
     config['device'] = 'cuda:0'
-    previous_analysis = tune.ExperimentAnalysis('experimental_data\embedding_size_search\\16\VAEBERT_2021-09-08_17-02-39')
-    algorithm = BayesOptSearch(
-        analysis = previous_analysis
+    algorithm = HyperOptSearch(
     )
     algorithm = ConcurrencyLimiter(
         algorithm,

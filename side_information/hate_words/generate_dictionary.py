@@ -1,10 +1,11 @@
 import pickle
 import pandas as pd
 import re
+import os
 
-direct_messages_location = 'iron_march_201911\core_message_posts.csv'
-forum_posts_location = 'iron_march_201911\core_search_index.csv'
-hate_words_pickle_location = 'side_information\hate_words\Hate_term_Data.pickle'
+direct_messages_location = 'iron_march_201911/core_message_posts.csv'
+forum_posts_location = 'iron_march_201911/core_search_index.csv'
+hate_words_pickle_location = 'side_information/hate_words/Hate_term_Data.pickle'
 
 pickle_file_objects = []
 with open(hate_words_pickle_location, 'rb') as pickled_info:
@@ -64,7 +65,7 @@ for idx, post in forum_posts_dataframe.iterrows():
         }
     )
 
-pd.DataFrame(hate_words).to_csv('side_information\hate_words\processed_side_information.csv', index = False)
+pd.DataFrame(hate_words).to_csv('side_information/hate_words/processed_side_information.csv', index = False)
 
 
 
