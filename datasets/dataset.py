@@ -11,7 +11,6 @@ from tqdm import tqdm
 from ast import literal_eval
 
 import os
-
 import pickle
 
 class BertPreprocess():
@@ -71,6 +70,7 @@ class IronMarch(Dataset):
         self.dataroot = dataroot
         self.data = []
 
+        #Use a hash function to cache the dataset
         self.config = {
             'use_context' : True,
             'side_information' : None,

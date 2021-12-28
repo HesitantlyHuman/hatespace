@@ -1,0 +1,1 @@
+#Create a wrapper for the loader which only needs to accept the text component of the data

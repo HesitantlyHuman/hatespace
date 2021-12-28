@@ -1,2 +1,2 @@
 from training.search_space import config
-from training.trainables import VAEBERT
+from training.loops import VAEBERT
