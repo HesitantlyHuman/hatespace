@@ -8,7 +8,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 
-from models import VAE, InterpolatedLinearLayers
+from model import VAE, InterpolatedLinearLayers
 
 from datasets import IronMarch
 

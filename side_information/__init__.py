@@ -1,1 +1,1 @@
-from side_information.information_loader import SideLoader
+from side_information.loaders import SideLoader

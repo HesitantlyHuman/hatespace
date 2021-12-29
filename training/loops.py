@@ -6,7 +6,7 @@ import os
 from ray import tune
 from torch.utils.data.dataloader import DataLoader
 
-from models import VAE, InterpolatedLinearLayers
+from model import VAE, InterpolatedLinearLayers
 
 BERT_embedding_size = 768
 epsilon = 1e-20

@@ -1,5 +1,5 @@
 import torch
-from models.utils import interpolate_from_fractionals, squircle_interpolation
+from model.utils import interpolate_from_fractionals, squircle_interpolation
 
 class VAE(torch.nn.Module):
     def __init__(self, encoder, decoder, feature_head = None, use_softmax = False):

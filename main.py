@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data import SubsetRandomSampler
 
 from datasets import IronMarch, BertPreprocess
-from models import VAE, InterpolatedLinearLayers
+from model import VAE, InterpolatedLinearLayers
 from side_information import SideLoader
 
 from torch.optim import Adam
@@ -14,7 +14,6 @@ from tqdm import tqdm
 import geomloss
 
 if __name__ == '__main__':
-
     if torch.cuda.is_available():
         device = 'cuda:0'
     else:

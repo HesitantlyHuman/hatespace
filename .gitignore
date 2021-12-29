@@ -8,10 +8,7 @@ TODO.txt
 
 #Data
 iron_march_201911/
-
-#raytune
-results/
-experimental_data/
+data/
 
 #VS Code
 .vscode
