@@ -1,1 +1,0 @@
-Consider converting everything to be fastai compatable. That way people can plug in all of the fastai stuff as well, and try for some really neat models.

@@ -6,9 +6,12 @@ __pycache__/
 # Workflow convenience
 TODO.txt
 
-#Data
+# Data
 iron_march_201911/
-data/
+data
+
+# Training
+results
 
 #VS Code
 .vscode
