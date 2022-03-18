@@ -1,5 +1,5 @@
 # Ironmarch Sinkhorn Archetypal Analysis
-Novel Archetypal Analysis NLP on the ironmarch SQL dataset.
+Novel Archetypal Analysis NLP on hateful text corpora.
 
 # Overview
 This repository is an implementation of a novel method for deep archetypal analysis, with the aim of creating highly interpretable latent spaces. We apply these tools to the analysis of the white supremicist forum iron march, with the aim of quantitative descriptions of sentiment among the forum over time. We use both Google's BERT model, and our embedding VAE to generate a descriptive latent space of this forum, where subsections of these users can be easily localized.
