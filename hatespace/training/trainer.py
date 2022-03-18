@@ -1,6 +1,6 @@
 from transformers import Trainer
 from torch.utils.data import DataLoader
-from ironmarch.datasets.base import DataLoader as IronmarchDataLoader
+from hatespace.datasets.base import DataLoader as IronmarchDataLoader
 
 # TODO: We may want to modify this class so that we can easily switch
 # between using sinkhorn, kl, vertex loss and others.

@@ -1,7 +1,7 @@
 from typing import List, Union
 import os
 import pandas as pd
-from ironmarch.datasets.base import Dataset, DataItem
+from hatespace.datasets.base import Dataset, DataItem
 
 
 class IronMarch(Dataset):

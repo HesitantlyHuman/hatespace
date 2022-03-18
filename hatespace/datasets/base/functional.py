@@ -9,9 +9,9 @@ import os
 import random
 from torch.utils.data import Dataset
 
-import ironmarch.datasets.base.dataset as ironmarch_datasets
-from ironmarch.datasets.base.utils import get_nested_data_types
-from ironmarch.datasets.base.display_utils import (
+import hatespace.datasets.base.dataset as ironmarch_datasets
+from hatespace.datasets.base.utils import get_nested_data_types
+from hatespace.datasets.base.display_utils import (
     format_docstring,
     format_examples_tabular,
     format_statistics,
@@ -58,9 +58,7 @@ class FunctionalDataset(Dataset):
             return {"id": id, "data": data, "target": target}
         elif isinstance(index, slice):
             data_indices = list(range(len(self))[index])
-            return ironmarch_datasets.DatasetView(
-                self, data_indices, sorted=False
-            )
+            return ironmarch_datasets.DatasetView(self, data_indices, sorted=False)
         elif isinstance(index, (tuple, list)):
             return ironmarch_datasets.DatasetView(self, index)
 
@@ -84,9 +82,7 @@ class FunctionalDataset(Dataset):
 
     def split(
         self, validation_proportion: float = 0.1, seed: int = None
-    ) -> Tuple[
-        "ironmarch_datasets.DatasetView", "ironmarch_datasets.DatasetView"
-    ]:
+    ) -> Tuple["ironmarch_datasets.DatasetView", "ironmarch_datasets.DatasetView"]:
         """Splits the dataset into a train set and a validation set.
 
         Will return two dataset views of the dataset. Each view is randomly sampled
@@ -115,9 +111,7 @@ class FunctionalDataset(Dataset):
         function: Union[Callable, List[Callable]],
         targets: bool = False,
         batch_size: int = None,
-    ) -> Union[
-        "ironmarch_datasets.Dataset", "ironmarch_datasets.DatasetView"
-    ]:
+    ) -> Union["ironmarch_datasets.Dataset", "ironmarch_datasets.DatasetView"]:
         """Maps a function over the dataset"""
         raise NotImplementedError
 
@@ -156,9 +150,7 @@ class FunctionalDataset(Dataset):
     # a new view, but that may be a costly abstraction
     def transform(
         self, function: Union[Callable, List[Callable]], targets: bool = False
-    ) -> Union[
-        "ironmarch_datasets.Dataset", "ironmarch_datasets.DatasetView"
-    ]:
+    ) -> Union["ironmarch_datasets.Dataset", "ironmarch_datasets.DatasetView"]:
         """Applies a transform to the dataset
 
         Adds a new transform to the dataset, after all current transforms. The new

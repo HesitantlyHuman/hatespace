@@ -2,7 +2,7 @@ from typing import Union, List, Dict
 import torch
 import numpy as np
 from transformers import AutoTokenizer
-from ironmarch.models.nlp.utils import get_sequence_bookends, listify_tokens
+from hatespace.models.nlp.utils import get_sequence_bookends, listify_tokens
 
 
 class Tokenizer:

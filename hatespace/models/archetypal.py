@@ -1,5 +1,5 @@
 import torch
-from ironmarch.models.base import Embedder
+from hatespace.models.base import Embedder
 
 
 class LinearArchetypal(Embedder):

@@ -1,6 +1,6 @@
 from typing import List
 import os
-from ironmarch.datasets.base import Dataset, DataItem
+from hatespace.datasets.base import Dataset, DataItem
 
 
 class SideInformation(Dataset):

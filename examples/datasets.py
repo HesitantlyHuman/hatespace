@@ -1,5 +1,5 @@
-from ironmarch.datasets import IronMarch
-from ironmarch.models.nlp import Tokenizer
+from hatespace.datasets import IronMarch
+from hatespace.models.nlp import Tokenizer
 
 dataset = IronMarch("iron_march_201911")
 dataset.summary()

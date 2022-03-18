@@ -2,8 +2,8 @@ from typing import Union, Tuple
 
 from torch.nn import Module
 from transformers import AutoModel
-from ironmarch.models.archetypal import LinearArchetypal
-from ironmarch.models.base import Embedder
+from hatespace.models.archetypal import LinearArchetypal
+from hatespace.models.base import Embedder
 
 from transformers import logging
 

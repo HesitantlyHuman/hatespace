@@ -1,6 +1,6 @@
-from ironmarch.datasets import IronMarch
-from ironmarch.models.nlp import Tokenizer, ArchetypalTransformer
-from ironmarch.training import IronmarchTrainer
+from hatespace.datasets import IronMarch
+from hatespace.models.nlp import Tokenizer, ArchetypalTransformer
+from hatespace.training import IronmarchTrainer
 from transformers.training_args import TrainingArguments
 
 # TODO: Add a cli, so that running the code is even easier

@@ -6,7 +6,7 @@ README_FILE = open(os.path.join(PACKAGE_ROOT, "README.md"), "r").read()
 
 if __name__ == "__main__":
     setup(
-        name="ironmarch",
+        name="hatespace",
         version="0.0.0",
         description="Novel Archetypal Analysis NLP on the ironmarch SQL dataset.",
         long_description=README_FILE,

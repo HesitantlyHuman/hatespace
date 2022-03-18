@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Sequence
 
 from torch.utils.data import Dataset, DataLoader, Sampler
-from ironmarch.datasets.base.utils import default_collate_without_key
+from hatespace.datasets.base.utils import default_collate_without_key
 
 
 class DataLoader(DataLoader):
