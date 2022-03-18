@@ -3,16 +3,22 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-#Data
+# Workflow convenience
+TODO.txt
+
+# Data
 iron_march_201911/
+data
+
+# Training
+results
 
 #VS Code
 .vscode
 
 # Project save files
 *.pickle
-saved_models/*
-saved_embeddings/*
+embeddings/*
 processed_side_information.csv
 /post_training_analysis/closest_posts/output/*.txt
 /results

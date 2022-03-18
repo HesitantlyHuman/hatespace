@@ -1,5 +1,5 @@
 # Ironmarch Sinkhorn Archetypal Analysis
-Novel Archetypal Analysis NLP on the ironmarch SQL dataset.
+Novel Archetypal Analysis NLP on hateful text corpora.
 
 # Overview
 This repository is an implementation of a novel method for deep archetypal analysis, with the aim of creating highly interpretable latent spaces. We apply these tools to the analysis of the white supremicist forum iron march, with the aim of quantitative descriptions of sentiment among the forum over time. We use both Google's BERT model, and our embedding VAE to generate a descriptive latent space of this forum, where subsections of these users can be easily localized.
@@ -17,13 +17,15 @@ The DeepAA framework uses archetypal loss to promote spread towards the vertices
 Secondly, we enforce strictly linear relationships between the latent space and any side information which the model is training with. This allows to identify vectors in the latent space along which particular features are organized, and the linear requirements ensure that we can easily extrapolate across the space during our analysis. Providing these relationships allows us to contextualize the embeddings in a way that is meaningful to humans, and not just the decoder network.
 
 # Running the Code
-The top level file [`training.py`](training.py) is the main entry point. Before running, make sure to have pytorch installed and correctly configured for your training device. Download the ironmarch dataset, and place it within the top level repository folder. Make sure that the data folder is titled `iron_march`.
+## Installation
+To install simply clone the repo, then run
+```
+pip install .
+```
+from the repo root. The `ironmarch` package will then be installed in the currently active environment.
 
-If there are problems running the code, refer to the list of [required packages](requirements.txt). Furthermore, you can simply download all of the required packages by navigating to the cloned repository and using the command
-
-`$ pip install -r requirements.txt`
-
-First time running the code may take a while. It will be generating and caching embeddings from Google's roBERTa model. Afterwards, you may change the `load_from_cache` flag in the `training.py` file to `True`. If while running the code for the first time, you recieve an error while loading the dataset, check that this flag is not already `True`, since it will not yet have a cache to load from.
+## Training
+To train a model, simply run the `train.py` script. (Currently still under construction. A cli will also be included later)
 
 # Analyzing the Latent Space
 This project is currently under development, and no embeddings are available at this time. Feel free to clone the repo and run the code to generate your own.
