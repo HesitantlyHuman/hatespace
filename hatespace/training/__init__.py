@@ -1,1 +1,1 @@
-from hatespace.training.trainer import IronmarchTrainer
+from hatespace.training.trainer import HatespaceTrainer
