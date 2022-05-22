@@ -12,3 +12,11 @@ class Embedder(Module):
     def forward(self, *args, **kwargs):
         encoder_ouputs = self.encoder(*args, **kwargs)
         return (self.decoder(encoder_ouputs), encoder_ouputs)
+
+    def freeze(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+
+    def unfreeze(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = True

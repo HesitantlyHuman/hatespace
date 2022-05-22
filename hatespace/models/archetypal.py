@@ -1,17 +1,40 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from hatespace.models.base import Embedder
-from hatespace.models.nlp import TransformerEmbedder
+from transformers import EncoderDecoderModel
+from hatespace.models.nlp.modeling_outputs import ArchetypalTransformerModelOutput
+
+from transformers import logging
+
+logging.set_verbosity_error()
 
 # TODO This guy needs a better name
-class TransformerArchetypal(Module):
+class TransformerArchetypal(EncoderDecoderModel):
     def __init__(
-        self, transformers: TransformerEmbedder, inner_embedder: Embedder
+        self, model_name_or_path: Union[str, Tuple[str]], inner_embedder: Embedder
     ) -> None:
-        super().__init__()
-        self.transformers = transformers
+        if isinstance(model_name_or_path, (tuple, list)):
+            encoder_type, decoder_type = model_name_or_path
+        else:
+            encoder_type = model_name_or_path
+            decoder_type = model_name_or_path
+        encoder_decoder = EncoderDecoderModel.from_encoder_decoder_pretrained(
+            encoder_type, decoder_type
+        )
+
+        super().__init__(
+            config = encoder_decoder.config, 
+            encoder = encoder_decoder.encoder, 
+            decoder = encoder_decoder.decoder
+        )
+        del encoder_decoder
+
+        self.train()
+        self.gradient_checkpointing_disable()
+
         self.inner_embedder = inner_embedder
+        self.vocab_size = self.decoder.config.vocab_size
 
     def forward(
         self,
@@ -30,7 +53,7 @@ class TransformerArchetypal(Module):
         return_dict = (
             return_dict
             if return_dict is not None
-            else self.transformers.encoder.config.use_return_dict
+            else self.encoder.config.use_return_dict
         )
 
         kwargs_encoder = {
@@ -45,7 +68,7 @@ class TransformerArchetypal(Module):
             if argument.startswith("decoder_")
         }
 
-        encoder_outputs = self.transformers.encoder(
+        encoder_outputs = self.encoder(
             input_ids=input_ids,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
@@ -59,7 +82,7 @@ class TransformerArchetypal(Module):
             encoder_outputs[0]
         )
 
-        decoder_outputs = self.transformers.decoder(
+        decoder_outputs = self.decoder(
             input_ids=input_ids,
             attention_mask=decoder_attention_mask,
             encoder_hidden_states=predicted_encoder_hidden_states,
@@ -73,21 +96,38 @@ class TransformerArchetypal(Module):
             **kwargs_decoder,
         )
 
-        return (decoder_outputs.logits, embeddings)
+        return ArchetypalTransformerModelOutput(
+            logits=decoder_outputs.logits,
+            embeddings=embeddings,
+            past_key_values=decoder_outputs.past_key_values,
+            decoder_hidden_states=decoder_outputs.hidden_states,
+            decoder_attentions=decoder_outputs.attentions,
+            cross_attentions=decoder_outputs.cross_attentions,
+            encoder_last_hidden_state=encoder_outputs.last_hidden_state,
+            encoder_hidden_states=encoder_outputs.hidden_states,
+            encoder_attentions=encoder_outputs.attentions,
+        )
+
+    def generate_from_sequence(self, inputs: torch.Tensor, *args, **kwargs) -> torch.LongTensor:
+        return self.generate(inputs = inputs, *args, **kwargs)
+
+    def generate_from_embeddings(self, embeddings: torch.Tensor, *args, **kwargs) -> torch.LongTensor:
+        intermediate_encodings = self.inner_embedder.decoder(embeddings)
+        return self.generate(inputs = None, encoder_outputs = intermediate_encodings, *args, **kwargs)
 
 
 class LinearArchetypal(Embedder):
     def __init__(self, input_dimensions, num_archetypes) -> None:
         encoder = torch.nn.Sequential(
-            torch.nn.Linear(input_dimensions, 128),
+            torch.nn.Linear(input_dimensions, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(128, num_archetypes),
+            torch.nn.Linear(512, num_archetypes),
             torch.nn.Softmax(dim=1),
         )
         decoder = torch.nn.Sequential(
-            torch.nn.Linear(num_archetypes, 128),
+            torch.nn.Linear(num_archetypes, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(128, input_dimensions),
+            torch.nn.Linear(512, input_dimensions),
             torch.nn.ReLU(),
         )
         super().__init__(encoder=encoder, decoder=decoder)

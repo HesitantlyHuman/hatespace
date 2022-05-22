@@ -17,8 +17,6 @@ from typing import (
 )
 import logging
 import os
-
-from h11 import Data
 from hatespace import __location__ as ROOTFLOW_LOCATION
 from hatespace.datasets.base.functional import FunctionalDataset
 from hatespace.datasets.base.utils import (
