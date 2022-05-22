@@ -9,6 +9,6 @@ class Embedder(Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def forward(self, x):
-        embedding = self.encoder(x)
-        return (self.decoder(x), embedding)
+    def forward(self, *args, **kwargs):
+        encoder_ouputs = self.encoder(*args, **kwargs)
+        return (self.decoder(encoder_ouputs), encoder_ouputs)

@@ -4,13 +4,13 @@ Implements the basics of the functional API for ironmarch datasets and
 dataset-like objects. (For example DatasetView)
 """
 
-from typing import Callable, Sequence, Tuple, List, Union
+from typing import Any, Callable, Sequence, Tuple, List, Union
 import os
 import random
 from torch.utils.data import Dataset
 
 import hatespace.datasets.base.dataset as ironmarch_datasets
-from hatespace.datasets.base.utils import get_nested_data_types
+from hatespace.datasets.base.utils import get_nested_data_types, batch_enumerate
 from hatespace.datasets.base.display_utils import (
     format_docstring,
     format_examples_tabular,
@@ -80,6 +80,18 @@ class FunctionalDataset(Dataset):
         """Gets a data item at the index"""
         raise NotImplementedError
 
+    def set_index(self, index: int, value: tuple) -> None:
+        """Sets a data item at the index.
+
+        Data should be in the format (id, data, target). If a tuple of length 2 is
+        given, it is assumed to be of the form (data, target).
+
+        Args:
+            index (int): Index which to replace with the new value.
+            value (Tuple[str, Any, Any]): New data to place at the index.
+        """
+        raise NotImplementedError
+
     def split(
         self, validation_proportion: float = 0.1, seed: int = None
     ) -> Tuple["ironmarch_datasets.DatasetView", "ironmarch_datasets.DatasetView"]:
@@ -106,14 +118,71 @@ class FunctionalDataset(Dataset):
             ironmarch_datasets.DatasetView(self, indices[:n_test], sorted=False),
         )
 
+    # TODO: Decide how to handle map edge cases
+    # Represents some dangerous interior mutability
+    # Does not play well with views (What should we change and not change. Do we allow different parts of the dataset to have different data?)
+    # Does not play well with datasets who need to have data be memmaped or hdf5ed from disk
+
+    # While splitting out the dataset into three lists, (ids, data, targets) might
+    # make batch mapping faster because we can do true slice assignment, it may also
+    # decrease the load speed for indexing the dataset (cache locality of the different
+    # item members for the given index) TODO: Test this
     def map(
-        self,
-        function: Union[Callable, List[Callable]],
-        targets: bool = False,
-        batch_size: int = None,
-    ) -> Union["ironmarch_datasets.Dataset", "ironmarch_datasets.DatasetView"]:
-        """Maps a function over the dataset"""
-        raise NotImplementedError
+        self, function: Callable, targets: bool = False, batch_size: int = None
+    ) -> Union["Dataset", "DatasetView"]:
+        """Maps a function over the dataset.
+
+        Applies some given function(s) to each dataset example contained within the
+        dataset. Returns `self` to assist with the functional API, but mutates internal
+        state so is not functional at all.
+
+        Args:
+            function (Union[Callable, List[Callable]]): The function or functions you
+                would like to map over the dataset.
+            targets (:obj:`bool`, optional): Whether the functions should be mapped
+                over the data item targets, instead of the data.
+            batch_size (:obj:`int`, optional): A batch size, if the functions to map
+                support or require batches of inputs.
+
+        Raises:
+            AssertionError: If a batched function does not return a list of the same
+                length as its inputs.
+        """
+
+        if batch_size is None:
+            for idx in range(len(self)):
+                id, data, target = self.index(idx)
+                if targets:
+                    target = function(target)
+                else:
+                    data = function(data)
+                self.set_index(idx, (id, data, target))
+        else:
+            if targets:
+                attribute = "target"
+            else:
+                attribute = "data"
+            for slice, batch in batch_enumerate(self, batch_size):
+                mapped_batch_data = function(
+                    [data_item[attribute] for data_item in batch]
+                )
+                assert isinstance(
+                    mapped_batch_data, Sequence
+                ), "Map function does not return a sequence over batch"
+                assert len(mapped_batch_data) == len(
+                    batch
+                ), "Map function does not return batch of same length as input"
+                for idx, mapped_example_data in zip(
+                    range(slice.start, slice.stop), mapped_batch_data
+                ):
+                    id, data, target = self.index(idx)
+                    if targets:
+                        target = mapped_example_data
+                    else:
+                        data = mapped_example_data
+                    self.set_index(idx, (id, data, target))
+
+        return self
 
     def where(
         self,
@@ -268,3 +337,5 @@ class FunctionalDataset(Dataset):
 
         print("\nExamples:")
         print(format_examples_tabular(self.examples(), description_width, indent=True))
+
+        print()

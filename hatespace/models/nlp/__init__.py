@@ -1,2 +1,2 @@
 from hatespace.models.nlp.tokenization import Tokenizer
-from hatespace.models.nlp.transformers import ArchetypalTransformer
+from hatespace.models.nlp.transformer import TransformerEmbedder

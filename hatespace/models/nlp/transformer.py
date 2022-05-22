@@ -1,17 +1,29 @@
-from typing import Optional, Tuple
-import torch
-from torch.nn import Module
-from hatespace.models.base import Embedder
-from hatespace.models.nlp import TransformerEmbedder
+from typing import Union, Tuple, Optional
 
-# TODO This guy needs a better name
-class TransformerArchetypal(Module):
-    def __init__(
-        self, transformers: TransformerEmbedder, inner_embedder: Embedder
-    ) -> None:
-        super().__init__()
-        self.transformers = transformers
-        self.inner_embedder = inner_embedder
+import torch
+from transformers import EncoderDecoderModel
+from hatespace.models.base import Embedder
+
+from transformers import logging
+
+logging.set_verbosity_error()
+
+
+class TransformerEmbedder(Embedder):
+    def __init__(self, model_name_or_path: Union[str, tuple]) -> None:
+        if isinstance(model_name_or_path, (tuple, list)):
+            encoder_type, decoder_type = model_name_or_path
+        else:
+            encoder_type = model_name_or_path
+            decoder_type = model_name_or_path
+        encoder_decoder = EncoderDecoderModel.from_encoder_decoder_pretrained(
+            encoder_type, decoder_type
+        )
+        encoder_decoder.train()
+        super().__init__(
+            encoder=encoder_decoder.encoder, decoder=encoder_decoder.decoder
+        )
+        self.huggingface_model = encoder_decoder
 
     def forward(
         self,
@@ -30,7 +42,7 @@ class TransformerArchetypal(Module):
         return_dict = (
             return_dict
             if return_dict is not None
-            else self.transformers.encoder.config.use_return_dict
+            else self.encoder.config.use_return_dict
         )
 
         kwargs_encoder = {
@@ -45,7 +57,7 @@ class TransformerArchetypal(Module):
             if argument.startswith("decoder_")
         }
 
-        encoder_outputs = self.transformers.encoder(
+        encoder_outputs = self.encoder(
             input_ids=input_ids,
             attention_mask=attention_mask,
             inputs_embeds=inputs_embeds,
@@ -55,14 +67,12 @@ class TransformerArchetypal(Module):
             **kwargs_encoder,
         )
 
-        predicted_encoder_hidden_states, embeddings = self.inner_embedder(
-            encoder_outputs[0]
-        )
+        encoder_hidden_states = encoder_outputs[0]
 
-        decoder_outputs = self.transformers.decoder(
+        decoder_outputs = self.decoder(
             input_ids=input_ids,
             attention_mask=decoder_attention_mask,
-            encoder_hidden_states=predicted_encoder_hidden_states,
+            encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=attention_mask,
             inputs_embeds=decoder_inputs_embeds,
             output_attentions=output_attentions,
@@ -73,28 +83,4 @@ class TransformerArchetypal(Module):
             **kwargs_decoder,
         )
 
-        return (decoder_outputs.logits, embeddings)
-
-
-class LinearArchetypal(Embedder):
-    def __init__(self, input_dimensions, num_archetypes) -> None:
-        encoder = torch.nn.Sequential(
-            torch.nn.Linear(input_dimensions, 128),
-            torch.nn.ReLU(),
-            torch.nn.Linear(128, num_archetypes),
-            torch.nn.Softmax(dim=1),
-        )
-        decoder = torch.nn.Sequential(
-            torch.nn.Linear(num_archetypes, 128),
-            torch.nn.ReLU(),
-            torch.nn.Linear(128, input_dimensions),
-            torch.nn.ReLU(),
-        )
-        super().__init__(encoder=encoder, decoder=decoder)
-
-    def forward(self, x):
-        input_shape = x.shape
-        x = torch.flatten(x, start_dim=1)
-        embedding = self.encoder(x)
-        output = torch.reshape(self.decoder(embedding), input_shape)
-        return (output, embedding)
+        return (decoder_outputs.logits, encoder_hidden_states)

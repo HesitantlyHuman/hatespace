@@ -17,6 +17,8 @@ from typing import (
 )
 import logging
 import os
+
+from h11 import Data
 from hatespace import __location__ as ROOTFLOW_LOCATION
 from hatespace.datasets.base.functional import FunctionalDataset
 from hatespace.datasets.base.utils import (
@@ -184,68 +186,6 @@ class Dataset(FunctionalDataset):
             task_type, task_shape = infer_task_from_targets(single_task_generator())
             return [{"name": "task", "type": task_type, "shape": task_shape}]
 
-    # TODO: Decide how to handle map edge cases
-    # Represents some dangerous interior mutability
-    # Does not play well with views (What should we change and not change. Do we allow different parts of the dataset to have different data?)
-    # Does not play well with datasets who need to have data be memmaped or hdf5ed from disk
-
-    # While splitting out the dataset into three lists, (ids, data, targets) might
-    # make batch mapping faster because we can do true slice assignment, it may also
-    # decrease the load speed for indexing the dataset (cache locality of the different
-    # item members for the given index) TODO: Test this
-    def map(
-        self,
-        function: Union[Callable, List[Callable]],
-        targets: bool = False,
-        batch_size: int = None,
-    ) -> Union["Dataset", "DatasetView"]:
-        """Maps a function over the dataset.
-
-        Applies some given function(s) to each dataset example contained within the
-        dataset. Returns `self` to assist with the functional API, but mutates internal
-        state so is not functional at all.
-
-        Args:
-            function (Union[Callable, List[Callable]]): The function or functions you
-                would like to map over the dataset.
-            targets (:obj:`bool`, optional): Whether the functions should be mapped
-                over the data item targets, instead of the data.
-            batch_size (:obj:`int`, optional): A batch size, if the functions to map
-                support or require batches of inputs.
-
-        Raises:
-            AssertionError: If a batched function does not return a list of the same
-                length as its inputs.
-        """
-        if targets:
-            attribute = "target"
-        else:
-            attribute = "data"
-
-        if batch_size is None:
-            for idx, data_item in enumerate(self.data):
-                setattr(data_item, attribute, function(getattr(data_item, attribute)))
-                self.data[idx] = data_item
-        else:
-            for slice, batch in batch_enumerate(self.data, batch_size):
-                mapped_batch_data = function(
-                    [getattr(data_item, attribute) for data_item in batch]
-                )
-                assert isinstance(mapped_batch_data, Sequence) and not isinstance(
-                    mapped_batch_data, str
-                ), "Map function does not return a sequence over batch"
-                assert len(mapped_batch_data) == len(
-                    batch
-                ), "Map function does not return batch of same length as input"
-                for idx, mapped_example_data in zip(
-                    range(slice.start, slice.stop), mapped_batch_data
-                ):
-                    data_item = self.data[idx]
-                    setattr(data_item, attribute, mapped_example_data)
-                    self.data[idx] = data_item
-
-        return self
-
     def __len__(self) -> int:
         """Gets the length of the dataset."""
         return len(self.data)
@@ -273,6 +213,18 @@ class Dataset(FunctionalDataset):
         if self.has_target_transforms:
             target = map_functions(target, self.target_transforms)
         return (id, data, target)
+
+    def set_index(self, index: int, value: Any) -> None:
+        if len(value) == 3:
+            id, data, target = value
+        elif len(value) == 2:
+            id = None
+            data, target = value
+        else:
+            raise AttributeError(
+                f"Tried to set dataset entry to value {value}, which is could not be unpacked into 2 or 3 elements!"
+            )
+        self.data[index] = DataItem(id=id, data=data, target=target)
 
 
 # TODO Add custom getattr for the dataset views so that if there is a custom
@@ -322,9 +274,6 @@ class DatasetView(FunctionalDataset):
         """
         return self.dataset.tasks()
 
-    def map(self, function: Callable, targets: bool = False, batch_size: int = None):
-        raise AttributeError("Cannot map over a dataset view!")
-
     def __len__(self):
         """Returns the length of the view"""
         return len(self.data_indices)
@@ -349,6 +298,15 @@ class DatasetView(FunctionalDataset):
         if self.has_target_transforms:
             target = map_functions(target, self.target_transforms)
         return (id, data, target)
+
+    def set_index(self, index: int, value: Any) -> None:
+        self.dataset.set_index(self.data_indices[index], value)
+
+    def __getattr__(self, attribute_name):
+        try:
+            return super().__getattr__(attribute_name)
+        except AttributeError:
+            return self.dataset.__getattr__(attribute_name)
 
 
 class ConcatDatasetView(FunctionalDataset):
@@ -448,9 +406,6 @@ class ConcatDatasetView(FunctionalDataset):
                 tasks.append(task)
         return tasks
 
-    def map(self, function: Callable, targets: bool = False, batch_size: int = None):
-        raise AttributeError("Cannot map over concatenated datasets!")
-
     def __len__(self):
         """Returns the total length of the concatenated datasets."""
         return len(self.dataset_one) + len(self.dataset_two)
@@ -480,6 +435,14 @@ class ConcatDatasetView(FunctionalDataset):
         if self.has_target_transforms:
             target = map_functions(target, self.target_transforms)
         return (id, data, target)
+
+    def set_index(self, index: int, value: Any) -> None:
+        if index < self.transition_point:
+            selected_dataset = self.dataset_one
+        else:
+            selected_dataset = self.dataset_two
+            index -= self.transition_point
+        selected_dataset.set_index(index, value)
 
 
 class DataItem:

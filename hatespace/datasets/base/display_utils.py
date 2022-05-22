@@ -62,12 +62,14 @@ def format_docstring(docstring: str, display_width: int, indent: bool = False) -
     formatted_docstring = ""
     docstring_lines = [line.strip() for line in docstring.split("\n")]
     for line in docstring_lines:
+        if line == "":
+            formatted_docstring += "\n"
         wrapped_lines = textwrap.wrap(line, width=display_width)
         for line in wrapped_lines:
             if indent:
                 formatted_docstring += TAB
             formatted_docstring += line + "\n"
-    return formatted_docstring[:-1]
+    return formatted_docstring[:-2]
 
 
 def format_statistics(

@@ -28,7 +28,7 @@ class Tokenizer:
                             for x in value
                         ]
                     )
-                )
+                ).long()
                 for key, value in self.tokenizer(tokenization_input).items()
             }
         elif mode == "first":
