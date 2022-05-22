@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 import torch
 from transformers.utils import ModelOutput
 
+
 @dataclass
 class ArchetypalTransformerModelOutput(ModelOutput):
     # TODO update docstring

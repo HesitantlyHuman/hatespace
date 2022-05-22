@@ -4,6 +4,7 @@ import numpy as np
 
 STOPPING_EPOCHS = 4
 
+
 def velocity_early_stopping(losses: List[float]) -> bool:
     if len(losses) < STOPPING_EPOCHS:
         return False
@@ -12,6 +13,7 @@ def velocity_early_stopping(losses: List[float]) -> bool:
     velocity_avg = np.mean(deltas)
 
     return all(losses[-STOPPING_EPOCHS:] < velocity_avg)
+
 
 def absolute_early_stopping(losses: List[float]) -> bool:
     if len(losses) < STOPPING_EPOCHS:

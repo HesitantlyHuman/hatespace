@@ -24,9 +24,9 @@ class TransformerArchetypal(EncoderDecoderModel):
         )
 
         super().__init__(
-            config = encoder_decoder.config, 
-            encoder = encoder_decoder.encoder, 
-            decoder = encoder_decoder.decoder
+            config=encoder_decoder.config,
+            encoder=encoder_decoder.encoder,
+            decoder=encoder_decoder.decoder,
         )
         del encoder_decoder
 
@@ -108,12 +108,18 @@ class TransformerArchetypal(EncoderDecoderModel):
             encoder_attentions=encoder_outputs.attentions,
         )
 
-    def generate_from_sequence(self, inputs: torch.Tensor, *args, **kwargs) -> torch.LongTensor:
-        return self.generate(inputs = inputs, *args, **kwargs)
+    def generate_from_sequence(
+        self, inputs: torch.Tensor, *args, **kwargs
+    ) -> torch.LongTensor:
+        return self.generate(inputs=inputs, *args, **kwargs)
 
-    def generate_from_embeddings(self, embeddings: torch.Tensor, *args, **kwargs) -> torch.LongTensor:
+    def generate_from_embeddings(
+        self, embeddings: torch.Tensor, *args, **kwargs
+    ) -> torch.LongTensor:
         intermediate_encodings = self.inner_embedder.decoder(embeddings)
-        return self.generate(inputs = None, encoder_outputs = intermediate_encodings, *args, **kwargs)
+        return self.generate(
+            inputs=None, encoder_outputs=intermediate_encodings, *args, **kwargs
+        )
 
 
 class LinearArchetypal(Embedder):
