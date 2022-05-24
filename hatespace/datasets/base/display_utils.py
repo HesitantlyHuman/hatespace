@@ -32,7 +32,7 @@ def truncate_with_elipse(string: str, max_width: int) -> str:
 def format_data_element(element: Any) -> str:
     """Formats a data element for console display"""
     if isinstance(element, str):
-        return element.strip()
+        return element.strip().replace("\n", " ")
     elif isinstance(element, float):
         return f"{element:.3f}"
     elif isinstance(element, type):
@@ -76,19 +76,16 @@ def format_statistics(
     statistics: dict, display_width: int, indent: bool = False
 ) -> str:
     """Formats dataset statistics
-
     Formats a given dictionary to be printed in a pseudo-yaml manner. (Instead of
     always breaking, single values will stay on the same line). The function will
     do so recursively, through multiple layers of dictionaries and lists. Lines which
     are longer than the specified width will be wrapped. The values of the dictionary
     will be formatted using the `format_data_element` function, which will, for example
     limit the precision of floating point values, among other things.
-
     Args:
         statistics (dict): A dict which we would like to format.
         display_width (int): The width at which we would like to start wrapping.
         indent (bool): Whether to begin the formatting with an indent.
-
     Returns:
         str: The formatted statistics.
     """
@@ -150,7 +147,6 @@ def format_statistics(
 
 def flatten_example(example: dict) -> list:
     """Expands the data and target components of a dataset example.
-
     If the data or target fields of a given example are either a list or a dict, they
     will be expanded out into a flat list.
     """
@@ -174,7 +170,6 @@ def flatten_example(example: dict) -> list:
 
 def get_flat_column_names(example: dict) -> List[str]:
     """Flattens the data and target fields, returning names for each.
-
     Returns a list of column names for the flattened version of the dataset example.
     If the data or target fields are a dictionary, the keys are returned. If the data
     or field is a list, the function will return feature_{i} for each expanded value.
@@ -209,18 +204,15 @@ def format_examples_tabular(
     examples: List[dict], table_width: int, indent: bool = False
 ) -> str:
     """Formats examples into a tabular display string.
-
     Returns the given list of examples in a tabular format, dynamically resizing
     columns and truncating table values where necessary. The function will
     flatten the given examples if the `"data"` or `"target"`s are dicts or lists,
     prefering to increase the number of columns instead of printing lists within
     the table.
-
     Args:
         examples List[dict]: The data examples to format.
         table_width (int): Desired width of the table in number of characters.
         indent (:obj:`bool`, optional): Whether to indent the entire table.
-
     Returns:
         str: The formatted examples.
     """

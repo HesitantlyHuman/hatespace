@@ -338,4 +338,4 @@ class FunctionalDataset(Dataset):
         print("\nExamples:")
         print(format_examples_tabular(self.examples(), description_width, indent=True))
 
-        print()
+        print("\n")

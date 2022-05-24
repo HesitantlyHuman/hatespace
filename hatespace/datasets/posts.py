@@ -1,9 +1,12 @@
-from typing import List, Union
+from typing import List, Union, Any
 import os
-
-# TODO remove pandas as a dependancy, since it is used in the relatively simple loading only
-import pandas as pd
+import csv
+import sys
+from html2text import html2text
+from tqdm import tqdm
 from hatespace.datasets.base import Dataset, DataItem
+
+csv.field_size_limit(sys.maxsize)
 
 
 class IronMarch(Dataset):
@@ -32,27 +35,53 @@ class IronMarch(Dataset):
         tasks: List[dict] = [],
         side_information: Union[List[dict], dict] = None,
     ) -> None:
+        print("Loading IronMarch dataset...")
         super().__init__(root, download, tasks)
         if side_information is not None:
             self.add_side_information(side_information=side_information)
+        print("Formatting posts...")
+        p_bar = tqdm(total=len(self))
+
+        def format_post_with_progress(post: str) -> str:
+            p_bar.update(1)
+            return self.format_post(post)
+
+        self.map(format_post_with_progress)
 
     def prepare_data(self, directory: str) -> List["DataItem"]:
         dm_file_path = os.path.join(directory, self.FILE_NAMES["direct_messages"])
-        dm_csv = pd.read_csv(dm_file_path)[["msg_id", "msg_post"]].rename(
-            {"msg_id": "id", "msg_post": "data"}, axis="columns"
+        direct_message_items = self.read_csv(
+            dm_file_path, "msg_id", "msg_post", "direct_message"
         )
-        dm_csv["id"] = dm_csv["id"].map(lambda id: "direct_message-" + str(id))
-
         posts_file_path = os.path.join(directory, self.FILE_NAMES["forum_posts"])
-        posts_csv = pd.read_csv(posts_file_path)[["index_id", "index_content"]].rename(
-            {"index_id": "id", "index_content": "data"}, axis="columns"
+        post_items = self.read_csv(
+            posts_file_path, "index_id", "index_content", "forum_post"
         )
-        posts_csv["id"] = posts_csv["id"].map(lambda id: "forum_post-" + str(id))
 
-        data = dm_csv.to_dict(orient="records") + posts_csv.to_dict(orient="records")
-        return [
-            DataItem(str(data_item["data"]), id=data_item["id"]) for data_item in data
-        ]
+        return direct_message_items + post_items
+
+    def read_csv(
+        self, path: str, id_column: str, data_column: str, id_prefix: str
+    ) -> List[DataItem]:
+        data_items = []
+        with open(path) as csv_file:
+            reader = csv.reader(csv_file)
+            headers = next(reader)
+            id_index, data_index = headers.index(id_column), headers.index(data_column)
+
+            for item in reader:
+                data_items.append(
+                    DataItem(
+                        data=str(item[data_index]),
+                        id=f"{id_prefix}-" + str(item[id_index]),
+                        target=None,
+                    )
+                )
+        return data_items
+
+    def format_post(self, post: str) -> str:
+        return html2text(post)
+        # TODO experiment with various strategies for things like links (Somthing like domain only)
 
     def download(self, directory: str) -> None:
         raise AttributeError(
@@ -65,4 +94,4 @@ class IronMarch(Dataset):
 
 if __name__ == "__main__":
     dataset = IronMarch("iron_march_201911")
-    print(dataset[0])
+    print(dataset.summary())
