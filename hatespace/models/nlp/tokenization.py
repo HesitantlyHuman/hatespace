@@ -1,3 +1,4 @@
+from re import I
 from typing import Callable, Sequence, Union, List, Dict
 import torch
 import numpy as np
@@ -35,8 +36,12 @@ class Tokenizer:
         )
 
     def __call__(self, input_strings: Union[List[str], str]) -> Dict[str, torch.Tensor]:
-        tokenized = self._tokenization_function(input_strings)
-        return listify_tokens(tokenized)
+        if isinstance(input_strings, str):
+            input_strings = [input_strings]
+            return self._tokenization_function(input_strings)
+        else:
+            tokenized = self._tokenization_function(input_strings)
+            return listify_tokens(tokenized)
 
     def decode(
         self,

@@ -62,13 +62,14 @@ class SampledDirichletLoss:
         )
         return self.sample_distance_function(points, dirichlet_sample)
 
-    def to(self, device: str) -> None:
+    def to(self, device: str) -> "SampledDirichletLoss":
         """Moves the loss function to the specified computation device
 
         Args:
             device (:obj:`str`): Device to move to.
         """
         self.device = device
+        return self
 
     def _get_sampler(self, num_dimensions: int) -> torch.distributions.Dirichlet:
         return torch.distributions.dirichlet.Dirichlet(

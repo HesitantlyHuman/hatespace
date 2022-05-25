@@ -7,6 +7,7 @@ from hatespace.datasets.base import DataLoader
 from hatespace.models.nlp import Tokenizer
 from hatespace.models.archetypal import TransformerArchetypal, LinearArchetypal
 from hatespace.training.utils import absolute_early_stopping, velocity_early_stopping
+from hatespace.training.losses import SampledDirichletLoss, SequenceLoss
 from transformers import get_scheduler
 
 # TODO: Add a cli, so that running the code is even easier
@@ -62,18 +63,11 @@ lr_scheduler = get_scheduler(
     name="linear",
     optimizer=optimizer,
     num_warmup_steps=100,
-    num_training_steps=num_training_steps,  # TODO Change to add warmup
+    num_training_steps=num_training_steps,
 )
 
-sinkhorn_loss_fn = geomloss.SamplesLoss(loss="sinkhorn", p=2, blur=0.05)
-reconstruction_loss_fn = torch.nn.CrossEntropyLoss()
-reg_class_loss_fn = torch.nn.MSELoss()
-archetypal_loss_fn = torch.nn.MSELoss()
-hierarchical_loss_fn = torch.nn.MSELoss()
-
-dirichlet_distribution = torch.distributions.dirichlet.Dirichlet(
-    torch.tensor([config["dirichlet_alpha"] for i in range(config["latent_dim_size"])])
-)
+distribution_loss_fn = SampledDirichletLoss(alpha=config["dirichlet_alpha"]).to(DEVICE)
+reconstruction_loss_fn = SequenceLoss()
 
 print("Starting training...")
 losses = {"train": [], "validation": []}
@@ -93,13 +87,8 @@ for epoch in range(config["epochs"]):
         del model_outputs
 
         # Calculate loss
-        reconstruction_loss = reconstruction_loss_fn(
-            predicted_sequence_logits.reshape(-1, model.vocab_size), data.view(-1)
-        )
-        sampled_dirichlet = dirichlet_distribution.sample([config["batch_size"]]).to(
-            DEVICE
-        )  # TODO Figure out how many samples is appropriate
-        distribution_loss = sinkhorn_loss_fn(embeddings, sampled_dirichlet)
+        reconstruction_loss = reconstruction_loss_fn(predicted_sequence_logits, data)
+        distribution_loss = distribution_loss_fn(embeddings)
 
         combined_loss = (
             config["reconstruction_weight"] * reconstruction_loss
@@ -131,14 +120,9 @@ for epoch in range(config["epochs"]):
 
             # Calculate loss
             reconstruction_loss = reconstruction_loss_fn(
-                predicted_sequence_logits.reshape(-1, model.vocab_size), data.view(-1)
+                predicted_sequence_logits, data
             )
-            sampled_dirichlet = dirichlet_distribution.sample(
-                [config["batch_size"]]
-            ).to(
-                DEVICE
-            )  # TODO Figure out how many samples is appropriate
-            distribution_loss = sinkhorn_loss_fn(embeddings, sampled_dirichlet)
+            distribution_loss = distribution_loss_fn(embeddings)
 
         combined_loss = (
             config["reconstruction_weight"] * reconstruction_loss
@@ -154,17 +138,13 @@ for epoch in range(config["epochs"]):
         break
     break
 
-from transformers import AutoTokenizer
-
-tokenizer = AutoTokenizer.from_pretrained("roberta-base")
-
 test_string = "Testing if generation is functional"
-test_tokens = tokenizer([test_string], return_tensors="pt")["input_ids"]
+test_tokens = tokenizer(test_string)["input_ids"]
 generated = model.generate_from_sequence(test_tokens.to(DEVICE))
-print(tokenizer.batch_decode(generated))
+print(tokenizer.decode(generated))
 
 test_embeddings = torch.nn.functional.one_hot(
     torch.Tensor[5], num_classes=config["latent_dim_size"]
 )
 generated = model.generate_from_embeddings(test_embeddings.to(DEVICE))
-print(tokenizer.batch_decode(generated))
+print(tokenizer.decode(generated))
