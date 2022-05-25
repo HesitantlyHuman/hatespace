@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
-from transformers.utils import ModelOutput
+from transformers.modeling_utils import ModelOutput
 
 
 @dataclass
