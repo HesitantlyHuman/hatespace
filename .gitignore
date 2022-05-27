@@ -13,15 +13,12 @@ data
 # Training
 results
 
+# Experimental Data
+trial_data.csv
+data.csv
+
 #VS Code
 .vscode
-
-# Project save files
-*.pickle
-embeddings/*
-processed_side_information.csv
-/post_training_analysis/closest_posts/output/*.txt
-/results
 
 # C extensions
 *.so
