@@ -19,10 +19,10 @@ config = {
     "num_binary_features": 8,
     "num_reg_features": 0,
     "use_context": False,
-    "distribution_weight": 1,
+    "distribution_weight": 1,  # 0.05
     "dirichlet_alpha": 0.5,
-    "gaussian_std": 0.1,
-    "reconstruction_weight": 10,
+    "gaussian_std": 0.1,  # At or below average dist between points
+    "reconstruction_weight": 0,  # 0.003
     "softmax": True,
     "binary_class_weight": 1,
     "use_features": True,
@@ -43,7 +43,6 @@ dataset = IronMarch("iron_march_201911")
 
 print("Tokenizing dataset...")
 tokenizer = Tokenizer("roberta-base", 512)
-dataset = dataset[:32]
 dataset = dataset.map(tokenizer, batch_size=256)
 train, val = dataset.split(validation_proportion=0.1)
 
