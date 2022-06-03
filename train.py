@@ -8,7 +8,7 @@ from hatespace.models.nlp import Tokenizer
 from hatespace.models.archetypal import TransformerArchetypal, LinearArchetypal
 from hatespace.training.utils import absolute_early_stopping, velocity_early_stopping
 from hatespace.training.losses import SampledDirichletLoss, SequenceLoss
-from transformers import get_scheduler
+from transformers import get_scheduler, AutoTokenizer
 
 # TODO: Add a cli, so that running the code is even easier
 
@@ -56,6 +56,12 @@ model = TransformerArchetypal(
     model_name_or_path="roberta-base", inner_embedder=inner_embedder
 )
 model.to(DEVICE)
+
+t = AutoTokenizer.from_pretrained("roberta-base")
+model.config.decoder_start_token_id = t.cls_token_id
+model.config.pad_token_id = t.pad_token_id
+model.config.vocab_size = model.config.decoder.vocab_size
+model.config.bos_token_id = t.cls_token_id
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
 num_training_steps = config["epochs"] * len(train_loader)
