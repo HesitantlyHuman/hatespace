@@ -1,3 +1,4 @@
+from random import randrange
 from typing import Callable
 
 import torch
@@ -13,21 +14,25 @@ class SampledDirichletLoss:
     def __init__(
         self,
         alpha: float = 1.0,
+        num_samples: int = 100,
         sample_distance_function: Callable[
             [torch.Tensor, torch.Tensor], torch.Tensor
         ] = geomloss.SamplesLoss(),
     ) -> None:
         """Initialize the SampledDirichletLoss.
 
-        Creates a new instance of the loss, setting both the alpha value for the
-        desired target distribution, and optionally the distance function to use for
-        calculating the loss.
+        Creates a new instance of the loss, setting the alpha value for the desired
+        target distribution, the number of samples to draw and optionally the distance
+        function to use for calculating the loss. Larger values of `num_samples` will
+        increase the accuracy of the loss, but take more time and memory to compute.
 
         Args:
-            dirichlet_alpha (:obj:`float`): Distribution density for the target dirichlet.
+            alpha (:obj:`float`): Distribution density for the target dirichlet.
+            num_samples (:obj:`int`): Number of samples to draw from the target dirichlet.
             sample_distance_function (:type:`Callable`, optional): Function to evaluate the distribution distances.
         """
         self.alpha = alpha
+        self.num_samples = num_samples
         self.sample_distance_function = sample_distance_function
         self.device = "cpu"
 
@@ -57,7 +62,7 @@ class SampledDirichletLoss:
         if not num_dimensions == self.num_dimensions:
             self.distribution_sampler = self._get_sampler(num_dimensions)
         # TODO Figure out how many samples is appropriate
-        dirichlet_sample = self.distribution_sampler.sample([batch_size]).to(
+        dirichlet_sample = self.distribution_sampler.sample([self.num_samples]).to(
             self.device
         )
         return self.sample_distance_function(points, dirichlet_sample)
