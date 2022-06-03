@@ -1,5 +1,4 @@
 from typing import Optional, Tuple, Union
-from typing_extensions import Self
 import torch
 from torch.nn import Module
 from hatespace.models.base import Embedder
@@ -14,7 +13,7 @@ logging.set_verbosity_error()
 
 
 def shift_tokens_right(
-    self, input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int
+    input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int
 ):
     """
     Shift input ids one token to the right.
@@ -155,7 +154,9 @@ class TransformerArchetypal(EncoderDecoderModel):
     def generate_from_sequence(
         self, inputs: torch.Tensor, *args, **kwargs
     ) -> torch.LongTensor:
-        return self.generate(inputs=inputs, *args, **kwargs)
+        if len(inputs.shape) <= 1:
+            inputs = torch.unsqueeze(inputs, dim=0)
+        return self.generate(input_ids=inputs, *args, **kwargs)
 
     def generate_from_embeddings(
         self, embeddings: torch.Tensor, *args, **kwargs
