@@ -1,6 +1,5 @@
 import torch
 import numpy as np
-import geomloss
 from tqdm import tqdm
 from hatespace.datasets import IronMarch
 from hatespace.datasets.base import DataLoader
@@ -8,28 +7,27 @@ from hatespace.models.nlp import Tokenizer
 from hatespace.models.archetypal import TransformerArchetypal, LinearArchetypal
 from hatespace.training.utils import absolute_early_stopping, velocity_early_stopping
 from hatespace.training.losses import SampledDirichletLoss, SequenceLoss
-from transformers import get_scheduler, AutoTokenizer
+from transformers import get_scheduler
 
 # TODO: Add a cli, so that running the code is even easier
 
 config = {
-    "epochs": 50,
+    "epochs": 300,
     "batch_size": 2,
-    "latent_dim_size": 16,
-    "num_binary_features": 8,
-    "num_reg_features": 0,
-    "use_context": False,
-    "distribution_weight": 1,  # 0.05
-    "dirichlet_alpha": 0.5,
-    "gaussian_std": 0.1,  # At or below average dist between points
-    "reconstruction_weight": 0,  # 0.003
-    "softmax": True,
-    "binary_class_weight": 1,
-    "use_features": True,
-    "feature_threshold": 0.5,
-    "bias_weight_strength": 1,
-    "reg_class_weight": 1,
-    "archetypal_weight": 1,
+    "latent_dim_size": 512,
+    # "use_features": True,
+    # "num_binary_features": 8,
+    # "binary_feature_threshold": 0.5,
+    # "num_reg_features": 0,
+    # "use_context": False,
+    "distribution_weight": 20,  # 0.05
+    "dirichlet_alpha": 1.0,
+    # "gaussian_std": 0.1,  # At or below average dist between points
+    "reconstruction_weight": 0.33,  # 3.0
+    # "binary_class_weight": 1,
+    # "bias_weight_strength": 1,
+    # "reg_class_weight": 1,
+    # "archetypal_weight": 1,
 }
 
 if torch.cuda.is_available():
@@ -43,8 +41,11 @@ dataset = IronMarch("iron_march_201911")
 
 print("Tokenizing dataset...")
 tokenizer = Tokenizer("roberta-base", 512)
+dataset = dataset[:32]
 dataset = dataset.map(tokenizer, batch_size=256)
 train, val = dataset.split(validation_proportion=0.1)
+test_tokens = train[0]["data"]["input_ids"]
+test_string = tokenizer.decode(test_tokens, skip_special_tokens=True)
 
 train_loader = DataLoader(train, batch_size=config["batch_size"])
 val_loader = DataLoader(val, batch_size=config["batch_size"])
@@ -132,18 +133,13 @@ for epoch in range(config["epochs"]):
         batch_losses.append(combined_loss.detach().to("cpu"))
         p_bar.set_postfix({"Loss": "{:4.3f}".format(np.mean(batch_losses[-100:]))})
 
-    if absolute_early_stopping(losses["validation"]):
-        print("Early stopping triggered...")
-        break
-    break
+    print("Generating example reconstruction...")
+    generated = model.generate_from_sequence(test_tokens.to(DEVICE))
+    print(f"Baseline:\n{test_string}")
+    print(f"Generated:\n{tokenizer.batch_decode(generated)[0]}")
 
-test_string = "Testing if generation is functional"
-test_tokens = tokenizer(test_string)["input_ids"]
-generated = model.generate_from_sequence(test_tokens.to(DEVICE))
-print(tokenizer.decode(generated))
-
-test_embeddings = torch.nn.functional.one_hot(
-    torch.Tensor[5], num_classes=config["latent_dim_size"]
-)
-generated = model.generate_from_embeddings(test_embeddings.to(DEVICE))
-print(tokenizer.decode(generated))
+# test_embeddings = torch.nn.functional.one_hot(
+#     torch.Tensor[5], num_classes=config["latent_dim_size"]
+# )
+# generated = model.generate_from_embeddings(test_embeddings.to(DEVICE))
+# print(tokenizer.decode(generated))
