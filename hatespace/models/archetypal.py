@@ -3,11 +3,30 @@ import torch
 from torch.nn import Module
 from hatespace.models.base import Embedder
 from transformers import EncoderDecoderModel
+from transformers.modeling_outputs import Seq2SeqLMOutput
 from hatespace.models.nlp.modeling_outputs import ArchetypalTransformerModelOutput
+from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
 from transformers import logging
 
 logging.set_verbosity_error()
+
+def shift_tokens_right(self, input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
+    """
+    Shift input ids one token to the right.
+    """
+    shifted_input_ids = input_ids.new_zeros(input_ids.shape)
+    shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
+    if decoder_start_token_id is None:
+        raise ValueError("Make sure to set the decoder_start_token_id attribute of the model's configuration.")
+    shifted_input_ids[:, 0] = decoder_start_token_id
+
+    if pad_token_id is None:
+        raise ValueError("Make sure to set the pad_token_id attribute of the model's configuration.")
+    # replace possible -100 values in labels by `pad_token_id`
+    shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
+
+    return shifted_input_ids
 
 # TODO This guy needs a better name
 class TransformerArchetypal(EncoderDecoderModel):
@@ -40,10 +59,13 @@ class TransformerArchetypal(EncoderDecoderModel):
         self,
         input_ids: Optional[torch.LongTensor] = None,
         attention_mask: Optional[torch.FloatTensor] = None,
+        decoder_input_ids: Optional[torch.LongTensor] = None,
         decoder_attention_mask: Optional[torch.BoolTensor] = None,
+        encoder_outputs: Optional[Tuple[torch.FloatTensor]] = None,
         past_key_values: Tuple[Tuple[torch.FloatTensor]] = None,
         inputs_embeds: Optional[torch.FloatTensor] = None,
         decoder_inputs_embeds: Optional[torch.FloatTensor] = None,
+        labels: Optional[torch.LongTensor] = None,
         use_cache: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -68,22 +90,28 @@ class TransformerArchetypal(EncoderDecoderModel):
             if argument.startswith("decoder_")
         }
 
-        encoder_outputs = self.encoder(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            inputs_embeds=inputs_embeds,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-            **kwargs_encoder,
-        )
+        if encoder_outputs is None:
+          encoder_outputs = self.encoder(
+              input_ids=input_ids,
+              attention_mask=attention_mask,
+              inputs_embeds=inputs_embeds,
+              output_attentions=output_attentions,
+              output_hidden_states=output_hidden_states,
+              return_dict=return_dict,
+              **kwargs_encoder,
+          )
 
         predicted_encoder_hidden_states, embeddings = self.inner_embedder(
             encoder_outputs[0]
         )
 
+        if decoder_input_ids is None:
+          decoder_input_ids = shift_tokens_right(
+              input_ids, self.config.pad_token_id, self.config.decoder_start_token_id
+          )
+
         decoder_outputs = self.decoder(
-            input_ids=input_ids,
+            input_ids=decoder_input_ids,
             attention_mask=decoder_attention_mask,
             encoder_hidden_states=predicted_encoder_hidden_states,
             encoder_attention_mask=attention_mask,
@@ -117,6 +145,8 @@ class TransformerArchetypal(EncoderDecoderModel):
         self, embeddings: torch.Tensor, *args, **kwargs
     ) -> torch.LongTensor:
         intermediate_encodings = self.inner_embedder.decoder(embeddings)
+        intermediate_encodings = torch.reshape(intermediate_encodings, (embeddings.shape[0], 512, 768))
+        intermediate_encodings = BaseModelOutputWithPoolingAndCrossAttentions(last_hidden_state=intermediate_encodings)
         return self.generate(
             inputs=None, encoder_outputs=intermediate_encodings, *args, **kwargs
         )
