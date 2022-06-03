@@ -56,12 +56,6 @@ model = TransformerArchetypal(
 )
 model.to(DEVICE)
 
-t = AutoTokenizer.from_pretrained("roberta-base")
-model.config.decoder_start_token_id = t.cls_token_id
-model.config.pad_token_id = t.pad_token_id
-model.config.vocab_size = model.config.decoder.vocab_size
-model.config.bos_token_id = t.cls_token_id
-
 optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5)
 num_training_steps = config["epochs"] * len(train_loader)
 lr_scheduler = get_scheduler(
