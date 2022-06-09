@@ -2,9 +2,9 @@ from typing import List, Union, Any
 import os
 import csv
 import sys
-from html2text import html2text
 from tqdm import tqdm
 from hatespace.datasets.base import Dataset, DataItem
+from hatespace.datasets.clean import format_post
 
 csv.field_size_limit(sys.maxsize)
 
@@ -44,7 +44,7 @@ class IronMarch(Dataset):
 
         def format_post_with_progress(post: str) -> str:
             p_bar.update(1)
-            return self.format_post(post)
+            return format_post(post)
 
         self.map(format_post_with_progress)
 
@@ -58,7 +58,7 @@ class IronMarch(Dataset):
             posts_file_path, "index_id", "index_content", "forum_post"
         )
 
-        return direct_message_items + post_items
+        return post_items + direct_message_items
 
     def read_csv(
         self, path: str, id_column: str, data_column: str, id_prefix: str
@@ -79,10 +79,6 @@ class IronMarch(Dataset):
                 )
         return data_items
 
-    def format_post(self, post: str) -> str:
-        return html2text(post)
-        # TODO experiment with various strategies for things like links (Somthing like domain only)
-
     def download(self, directory: str) -> None:
         raise AttributeError(
             "Cannot download the IronMarch dataset!\nIf you do not have the data, you may request it by contacting tannersims@generallyintelligent.me."
@@ -94,4 +90,4 @@ class IronMarch(Dataset):
 
 if __name__ == "__main__":
     dataset = IronMarch("iron_march_201911")
-    print(dataset.summary())
+    dataset.summary()
