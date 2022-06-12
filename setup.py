@@ -18,5 +18,8 @@ if __name__ == "__main__":
         packages=find_packages(),
         install_requires=[
             "torch >=1.10.0, <2.0.0",
+            "geomloss",
+            "html2text >=2020.0.0",
+            "transformers >=4.0.0"
         ],
     )
