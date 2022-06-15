@@ -2,7 +2,6 @@ from typing import List, Union, Any
 import os
 import csv
 import sys
-from tqdm import tqdm
 from hatespace.datasets.base import Dataset, DataItem
 from hatespace.datasets.clean import format_post
 
@@ -39,14 +38,7 @@ class IronMarch(Dataset):
         super().__init__(root, download, tasks)
         if side_information is not None:
             self.add_side_information(side_information=side_information)
-        print("Formatting posts...")
-        p_bar = tqdm(total=len(self))
-
-        def format_post_with_progress(post: str) -> str:
-            p_bar.update(1)
-            return format_post(post)
-
-        self.map(format_post_with_progress)
+        self.format_all()
 
     def prepare_data(self, directory: str) -> List["DataItem"]:
         dm_file_path = os.path.join(directory, self.FILE_NAMES["direct_messages"])
@@ -78,6 +70,22 @@ class IronMarch(Dataset):
                     )
                 )
         return data_items
+
+    def format_all(self) -> None:
+        print("Formatting posts...")
+        try:
+            from tqdm import tqdm
+
+            p_bar = tqdm(total=len(self))
+
+            def format_post_with_progress(post: str) -> str:
+                p_bar.update(1)
+                return format_post(post)
+
+            self.map(format_post_with_progress)
+        except ModuleNotFoundError:
+            print("Please install tqdm if you wish to have a progress bar.")
+            self.map(format_post)
 
     def download(self, directory: str) -> None:
         raise AttributeError(
