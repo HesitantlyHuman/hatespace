@@ -14,7 +14,7 @@ class IronMarch(Dataset):
 
     TRIGGER WARNING:
     This dataset contains html snippets of both public and private conversations between
-    users of the facist IronMarch forum. The content as a whole tends to be racist,
+    users of the facist IronMarch forum. The content taken as a whole tends to be racist,
     sexist and almost every other flavor of vile. None of the content has been censored.
 
     The text within the dataset comes from two main sources. Private messages between
