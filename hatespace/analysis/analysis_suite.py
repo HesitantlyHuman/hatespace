@@ -28,7 +28,7 @@ class IronmarchAnalysis:
 
 	def __init__(self,
 		dataset_path: str, 
-		path_to_latent_vector_file: Optional[str] = '', 
+		latent_vector_file_path: Optional[str] = '', 
 		latent_vectors: Optional[np.ndarray] = None
 	):
 
@@ -36,7 +36,7 @@ class IronmarchAnalysis:
 			self.latent_vectors = latent_vectors
 		elif path_to_latent_vector_file is not '':
 			try:
-				self.latent_vectors = np.load(path_to_latent_vector_file)
+				self.latent_vectors = np.load(latent_vector_file_path)
 			except:
 				print('Latent vectors file must by .npy file')
 		else:
