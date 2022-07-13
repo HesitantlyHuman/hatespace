@@ -163,11 +163,11 @@ class IronmarchAnalysis:
 	# Gets specified number of archetypal posts
 	# Only returns list of lists containing the posts. Update to have pandas option
 	def get_archetypal_posts(self, num_posts_per_at: int):
-		nearest_indices = self.get_nearest_indices(self.latent_vectors, num_posts_per_at)
+		nearest_indices = self.get_nearest_indices(num_posts_per_at)
 		latent_dim_size = self.latent_vectors.shape[1]
 		at_posts = []
 		for i in range(latent_dim_size):
-		    top_posts = [texts[k] for k in nearest_indices[i]]
+		    top_posts = [self.posts[k] for k in nearest_indices[i]]
 		    at_posts.append(top_posts)
 		return at_posts
 
@@ -181,7 +181,7 @@ class IronmarchAnalysis:
 		latent_dim_size = self.latent_vectors.shape[1]
 		at_posts = []
 		for i in range(latent_dim_size):
-			top_posts = [texts[k] for k in nearest_indices[i]]
+			top_posts = [self.posts[k] for k in nearest_indices[i]]
 			post = ''
 			for j in range(20):
 				top = top_posts[j].lower(0)
