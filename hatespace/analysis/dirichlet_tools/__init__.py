@@ -1,0 +1,1 @@
+from hatespace.analysis.dirichlet_tools.dirichlet_gof import DirichletGOF
