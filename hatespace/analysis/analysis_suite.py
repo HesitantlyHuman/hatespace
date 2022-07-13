@@ -19,7 +19,7 @@ import re
 import string
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction import text
-from hatespace.analysis import DirichletGOF
+from hatespace.analysis.dirichlet_tools import DirichletGOF
 import os
 from datetime import datetime
 
