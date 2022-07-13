@@ -124,7 +124,7 @@ class IronmarchAnalysis:
 				split_latent_vectors = latent_vectors[split]
 				split_timestamps = [timestamps[i] for i in split]
 				split_ids = [ranged_ids[i] for i in split]
-				split_posts = get_posts_from_post_ids(split_ids)
+				split_posts = self.get_posts_from_post_ids(split_ids)
 
 				split_dict.append({'latent_vectors': split_latent_vectors, 'ids': split_ids, 'timestamps': split_timestamps, 'posts': split_posts})
 
@@ -132,6 +132,9 @@ class IronmarchAnalysis:
 
 		return {'latent_vectors': ranged_latent_vectors,'sorted_ids': ranged_ids, 'sorted_timestamps': timestamps, 'sorted_posts': posts}
 
+	def get_posts_from_post_ids(self, post_ids = []):
+		posts = [texts[id_index_dict[x]] for x in post_ids]
+		return posts
 
 	def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
 		'''
