@@ -27,7 +27,8 @@ from datetime import datetime
 class IronmarchAnalysis:
 
 	def __init__(self,
-		dataset_path: str, 
+		dataset_path: str,
+		dataset = None, 
 		latent_vector_file_path: Optional[str] = '', 
 		latent_vectors: Optional[np.ndarray] = None
 	):
@@ -42,7 +43,11 @@ class IronmarchAnalysis:
 		else:
 			raise ValueError('Must provide path to a latent vectors file, or provide a latent vectors array directly')
 
-		dataset = IronMarch(dataset_path)
+		if dataset_path is None:
+			if dataset is None:
+				raise ValueError('Must provide path to dataset, or provide dataset directly')
+		else:
+			dataset = IronMarch(dataset_path)
 		self.msgs = pd.read_csv(os.path.join(dataset_path, 'core_message_posts.csv'))
 		self.forums = pd.read_csv(os.path.join(dataset_path, 'core_search_index.csv'))
 
@@ -125,7 +130,7 @@ class IronmarchAnalysis:
 
 			split_dict = []
 			for split in split_indices:
-				split_latent_vectors = latent_vectors[split]
+				split_latent_vectors = self.latent_vectors[split]
 				split_timestamps = [timestamps[i] for i in split]
 				split_ids = [ranged_ids[i] for i in split]
 				split_posts = self.get_posts_from_post_ids(split_ids)
