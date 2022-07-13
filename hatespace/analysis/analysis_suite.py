@@ -143,12 +143,12 @@ class IronmarchAnalysis:
 		latent_dim_size = self.latent_vectors.shape[1]
 		dists = np.zeros((latent_dim_size, self.latent_vectors.shape[0]))
 		for i, vertex in enumerate(np.eye(latent_dim_size)):
-	  		dists[i] = np.sqrt(np.sum(np.square(self.latent_vectors-vertex), axis=1))
+			dists[i] = np.sqrt(np.sum(np.square(self.latent_vectors-vertex), axis=1))
 
-	  	# Get closest indices to each archetype by sorting
-	  	nearest_indices = np.argsort(dists)[:, :num_vectors_per_at]
+		# Get closest indices to each archetype by sorting
+		nearest_indices = np.argsort(dists)[:, :num_vectors_per_at]
 
-	  	return nearest_indices
+		return nearest_indices
 
 
 	# Gets specified number of archetypal posts
@@ -174,13 +174,13 @@ class IronmarchAnalysis:
 		for i in range(latent_dim_size):
 			top_posts = [texts[k] for k in nearest_indices[i]]
 			post = ''
-		  	for j in range(20):
-		    	top = top_posts[j].lower(0)
-		    	top = re.sub(r"<url>", ' ', top) # Can probably combine these two re lines
-		    	top = re.sub('[\n\t\r]', ' ', top)
-		    	post += top
-		    	post += ''
-		  	at_posts.append(post)
+			for j in range(20):
+				top = top_posts[j].lower(0)
+				top = re.sub(r"<url>", ' ', top) # Can probably combine these two re lines
+				top = re.sub('[\n\t\r]', ' ', top)
+				post += top
+				post += ''
+			at_posts.append(post)
 
 		my_stop_words = text.ENGLISH_STOP_WORDS
 		vectorizer = TfidfVectorizer(stop_words=my_stop_words)
