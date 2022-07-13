@@ -16,10 +16,13 @@ class DirichletGOF:
 
         self.Dir = self.symm_dirichlet(1)
 
+        '''
         if crit_val_arr is None:
             self.crit_value = self.critical_value()
         else:
             self.crit_value = np.quantile(crit_val_arr, self.significance_level)
+        '''
+        self.crit_value = 0
 
     class symm_dirichlet:
         def __init__(self, alpha, resolution=2**16):
@@ -169,8 +172,7 @@ class DirichletGOF:
         return energy_statistic(x, dir_dist, d) / x.shape[0]
 
     def test_statistic(self, x, n_iter=1000, print_log=False):
-        print('Critical value:', self.crit_value)
-
+        
         random_indices = np.random.rand(n_iter, x.shape[0]).argpartition(self.sample_size, axis=1)[:,:self.sample_size]
         stats = []
         for i in range(n_iter):
@@ -186,5 +188,5 @@ class DirichletGOF:
                 #print('Test distance:', test_stat / x_sample_transform.shape[0])
                 print()
 
-        return {'Sample Test Statistics': stats, 'Power': sum(i > crit_val for i in stats) / n_iter}
+        return {'Sample Test Statistics': stats, 'Power': sum(i > self.crit_value for i in stats) / n_iter}
 
