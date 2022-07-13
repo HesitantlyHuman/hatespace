@@ -219,8 +219,8 @@ class IronmarchAnalysis:
 		for i in range(7):
 			count = 0
 			for j in range(self.latent_vectors.shape[0]):
-			if np.dot(weights[i], self.latent_vectors[j]) + biases[i] > 0:
-				count += 1
+				if np.dot(weights[i], self.latent_vectors[j]) + biases[i] > 0:
+					count += 1
 			proportions.append(count / self.latent_vectors.shape[0])
 
 		print('Proportion of posts above each hyperplane')
