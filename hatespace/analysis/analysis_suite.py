@@ -47,7 +47,7 @@ class IronmarchAnalysis:
 		self.forums = pd.read_csv(os.path.join(dataset_path, 'core_search_index.csv'))
 
 		self.posts = [x['data'] for x in dataset]
-		self.posts = [str(i) for i in texts]
+		self.posts = [str(i) for i in self.posts]
 		
 		self.post_ids = [x['id'] for x in dataset] 
 
