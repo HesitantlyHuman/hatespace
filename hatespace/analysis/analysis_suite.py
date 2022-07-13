@@ -238,10 +238,10 @@ class IronmarchAnalysis:
 
 
 	# TODO: implement full dirichlet analysis of latent space
-	def dirichlet_analysis(self, significance_level, dim, sample_size, crit_val_arr=None):
+	def dirichlet_analysis(self, significance_level, dim, n_iters=10, sample_size=100, crit_val_arr=None, print_log=False):
 		gof = DirichletGOF(significance_level, dim, sample_size, crit_val_arr)
 
-		results = gof.test_statistic(self.latent_vectors)
+		results = gof.test_statistic(self.latent_vectors, n_iters=n_iters, print_log=print_log)
 
 		return results
 
