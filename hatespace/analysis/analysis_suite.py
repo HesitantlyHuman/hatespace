@@ -54,6 +54,10 @@ class IronmarchAnalysis:
 		self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
 
 
+	def get_posts_from_post_ids(self, post_ids = []):
+		posts = [self.posts[self.id_index_dict[x]] for x in post_ids]
+		return posts
+
 
 	def get(self, 
 		unix_start_time: Optional[int] = None, 
@@ -132,9 +136,6 @@ class IronmarchAnalysis:
 
 		return {'latent_vectors': ranged_latent_vectors,'sorted_ids': ranged_ids, 'sorted_timestamps': timestamps, 'sorted_posts': posts}
 
-	def get_posts_from_post_ids(self, post_ids = []):
-		posts = [texts[id_index_dict[x]] for x in post_ids]
-		return posts
 
 	def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
 		'''
