@@ -184,7 +184,7 @@ class IronmarchAnalysis:
 			top_posts = [self.posts[k] for k in nearest_indices[i]]
 			post = ''
 			for j in range(20):
-				top = top_posts[j].lower(0)
+				top = top_posts[j].lower()
 				top = re.sub(r"<url>", ' ', top) # Can probably combine these two re lines
 				top = re.sub('[\n\t\r]', ' ', top)
 				post += top
