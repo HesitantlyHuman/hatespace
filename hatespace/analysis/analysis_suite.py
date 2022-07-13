@@ -34,7 +34,7 @@ class IronmarchAnalysis:
 
 		if latent_vectors is not None:
 			self.latent_vectors = latent_vectors
-		elif path_to_latent_vector_file is not '':
+		elif latent_vector_file_path is not '':
 			try:
 				self.latent_vectors = np.load(latent_vector_file_path)
 			except:
@@ -188,7 +188,7 @@ class IronmarchAnalysis:
 
 		my_stop_words = text.ENGLISH_STOP_WORDS
 		vectorizer = TfidfVectorizer(stop_words=my_stop_words)
-		vectors = vectorizer.fit_transform(combined_at_posts)
+		vectors = vectorizer.fit_transform(at_posts)
 
 		feature_names = vectorizer.get_feature_names()
 		dense = vectors.todense()
