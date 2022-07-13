@@ -4,6 +4,7 @@ from scipy import special
 from scipy.spatial import distance_matrix
 from scipy.optimize import lsq_linear
 from scipy.special import psi, polygamma, betainc, gamma
+import threading
 
 class DirichletGOF:
     def __init__(self, significance_level, dim, sample_size, crit_val_arr=None):
