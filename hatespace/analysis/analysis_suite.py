@@ -177,7 +177,7 @@ class IronmarchAnalysis:
 	def archetypes_tfidf_scores(self, num_posts_per_at: int):
 		# For each archetype, concatenate all posts into one string.
 		# We will take all the posts in a single archetype to be one document
-		nearest_indices = self.get_nearest_indices(self.latent_vectors, num_posts_per_at)
+		nearest_indices = self.get_nearest_indices(num_posts_per_at)
 		latent_dim_size = self.latent_vectors.shape[1]
 		at_posts = []
 		for i in range(latent_dim_size):
