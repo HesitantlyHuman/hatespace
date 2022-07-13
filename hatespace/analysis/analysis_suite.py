@@ -102,7 +102,7 @@ class IronmarchAnalysis:
 		timestamps = [timestamps[i] for i in sort_indices]
 		ranged_ids = [ranged_ids[i] for i in sort_indices]
 
-		posts = get_posts_from_post_ids(ranged_ids)
+		posts = self.get_posts_from_post_ids(ranged_ids)
 
 		if split_by != '':
 			if split_by.lower() == 'day':
