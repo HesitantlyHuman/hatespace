@@ -139,7 +139,7 @@ class IronmarchAnalysis:
 
 			return split_dict
 
-		return {'latent_vectors': ranged_latent_vectors,'sorted_ids': ranged_ids, 'sorted_timestamps': timestamps, 'sorted_posts': posts}
+		return {'latent_vectors': ranged_latent_vectors,'ids': ranged_ids, 'timestamps': timestamps, 'posts': posts}
 
 
 	def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
