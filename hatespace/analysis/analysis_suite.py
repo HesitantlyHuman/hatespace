@@ -82,7 +82,7 @@ class IronmarchAnalysis:
 			else:
 				raise ValueError('Must provide path to a latent vectors file, or provide a latent vectors array directly')
 
-			self.posts = [x['data'] for x in dataset]
+			self.posts = [x['data'] for x in self.dataset]
 			self.posts = [str(i) for i in self.posts]
 
 			self.post_ids = [x['id'] for x in dataset] 
