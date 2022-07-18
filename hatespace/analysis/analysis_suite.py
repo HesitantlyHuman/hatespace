@@ -85,7 +85,7 @@ class IronmarchAnalysis:
 			self.posts = [x['data'] for x in self.dataset]
 			self.posts = [str(i) for i in self.posts]
 
-			self.post_ids = [x['id'] for x in dataset] 
+			self.post_ids = [x['id'] for x in self.dataset] 
 			self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
 
 			self.forums, self.msgs = self.return_df_from_ids(
