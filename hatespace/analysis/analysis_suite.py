@@ -22,6 +22,8 @@ from sklearn.feature_extraction import text
 from hatespace.analysis.dirichlet_tools import DirichletGOF
 import os
 from datetime import datetime
+import warnings
+import itertools
 
 
 class IronmarchAnalysis:
@@ -29,89 +31,151 @@ class IronmarchAnalysis:
 	def __init__(self,
 		dataset_path: str,
 		dataset = None, 
-		latent_vector_file_path: Optional[str] = '', 
-		latent_vectors: Optional[np.ndarray] = None
+		latent_vectors_file_path: Optional[str] = '', 
+		latent_vectors: Optional[np.ndarray] = None,
+		values_dict: Optional[dict] = {}
 	):
 
-		if latent_vectors is not None:
-			self.latent_vectors = latent_vectors
-		elif latent_vector_file_path is not '':
-			try:
-				self.latent_vectors = np.load(latent_vector_file_path)
-			except:
-				print('Latent vectors file must by .npy file')
+		self.dataset_path = dataset_path
+
+		if dataset is None:
+			self.dataset = IronMarch(dataset_path)
 		else:
-			raise ValueError('Must provide path to a latent vectors file, or provide a latent vectors array directly')
+			self.dataset = dataset
 
-		if dataset_path is None:
-			if dataset is None:
-				raise ValueError('Must provide path to dataset, or provide dataset directly')
+
+		if values_dict != {}:
+			self.values_dict = values_dict
+			self.latent_vectors_split = []
+			self.post_ids = []
+			self.timestamps = []
+			self.posts = []
+
+			for x in values_dict['data']:
+				self.latent_vectors_split.append(x['latent_vectors'])
+				self.post_ids.append(x['post_ids'])
+				self.timestamps.append(x['timestamps'])
+				self.posts.append(x['posts'])
+
+			if len(self.latent_vectors_split) == 0 or self.latent_vectors_split[0].shape[0] == 0:
+				raise ValueError('No posts with specified conditions. Specified time range is outside the original time range and/or given author(s) have no posts in time range.')
+
+			self.latent_vectors = np.concatenate(self.latent_vectors_split, axis=0)
+			self.post_ids = list(itertools.chain(*self.post_ids))
+			self.timestamps = list(itertools.chain(*self.timestamps))
+			self.posts = list(itertools.chain(*self.posts))
+
+			self.forums = values_dict['forums']
+			self.msgs = values_dict['msgs']
+
+			self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
+
 		else:
-			dataset = IronMarch(dataset_path)
-		self.msgs = pd.read_csv(os.path.join(dataset_path, 'core_message_posts.csv'))
-		self.forums = pd.read_csv(os.path.join(dataset_path, 'core_search_index.csv'))
 
-		self.posts = [x['data'] for x in dataset]
-		self.posts = [str(i) for i in self.posts]
-		
-		self.post_ids = [x['id'] for x in dataset] 
+			if latent_vectors is not None:
+				self.latent_vectors = latent_vectors
+			elif latent_vectors_file_path is not '':
+				try:
+					self.latent_vectors = np.load(latent_vectors_file_path)
+				except:
+					print('Latent vectors file must by .npy file')
+			else:
+				raise ValueError('Must provide path to a latent vectors file, or provide a latent vectors array directly')
 
-		self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
+			self.posts = [x['data'] for x in dataset]
+			self.posts = [str(i) for i in self.posts]
 
+			self.post_ids = [x['id'] for x in dataset] 
+			self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
+
+			self.forums, self.msgs = self.return_df_from_ids(
+				forums = pd.read_csv(os.path.join(dataset_path, 'core_search_index.csv')),
+				msgs = pd.read_csv(os.path.join(dataset_path, 'core_message_posts.csv')),
+				post_ids = self.post_ids
+			)
+
+			self.latent_vectors, self.timestamps, self.post_ids, self.posts = self.return_sorted(self.forums, self.msgs)
+
+			self.latent_vectors_split = [self.latent_vectors]
+
+			self.values_dict = {'data': [{'latent_vectors': self.latent_vectors, 'post_ids': self.post_ids, 'timestamps': self.timestamps, 'posts': self.posts}], 'forums': self.forums, 'msgs': self.msgs}
+			
+			#self.author_ids = self.forums['index_author'].tolist() + self.msgs['msg_author_id']
+			#self.author_ids = self.index_by_indices(self.author_ids, sort_indices)
+
+		self.latent_dim_size = self.latent_vectors.shape[1]
+
+
+	def index_by_indices(self, list_to_index, indices):
+		return [list_to_index[i] for i in indices]
 
 	def get_posts_from_post_ids(self, post_ids = []):
 		posts = [self.posts[self.id_index_dict[x]] for x in post_ids]
 		return posts
 
+	def return_sorted(self, forums, msgs):
+		forum_ids = ['forum_post-' + str(x) for x in forums['index_id'].tolist()]
+		msg_ids = ['direct_message-' + str(x) for x in msgs['msg_id'].tolist()]
 
-	def get(self, 
-		unix_start_time: Optional[int] = None, 
-		unix_end_time: Optional[int] = None,
-		start_ymd: Optional[tuple] = None, 
-		end_ymd: Optional[tuple] = None, 
+		post_ids = forum_ids + msg_ids
+		timestamps = forums['index_date_created'].tolist() + msgs['msg_date'].tolist()
+
+		indices = [self.id_index_dict[x] for x in post_ids]
+
+		latent_vectors = self.latent_vectors[indices]
+
+		sort_indices = np.argsort(timestamps)
+		latent_vectors = latent_vectors[sort_indices]
+		timestamps = self.index_by_indices(timestamps, sort_indices)
+		post_ids = self.index_by_indices(post_ids, sort_indices)
+		posts = self.get_posts_from_post_ids(post_ids)
+
+		return latent_vectors, timestamps, post_ids, posts
+
+	def return_df_from_ids(self, forums, msgs, post_ids):
+		forum_ids = [int(x.replace('forum_post-', '')) for x in post_ids if 'forum_post' in x]
+		msg_ids = [int(x.replace('direct_message-', '')) for x in post_ids if 'direct_message' in x]
+
+		forums = forums[forums['index_id'].isin(forum_ids)].sort_values(by='index_date_created')
+		msgs = msgs[msgs['msg_id'].isin(msg_ids)].sort_values(by='msg_date')
+
+		return forums, msgs
+
+	def get(self,
+		start_time: Optional[Union[Tuple[int,int,int], int]] = None, 
+		end_time: Optional[Union[Tuple[int,int,int], int]] = None, 
 		author_ids: Optional[list] = [],
 		split_by = ''
 		):
 		
 
-		if unix_start_time is not None:
-			start = unix_start_time
-		elif start_ymd is not None:
-			start = int(datetime(start_ymd[0], start_ymd[1], start_ymd[2]).timestamp())
+		if type(start_time) == tuple:
+			start = int(datetime(start_time[0], start_time[1], start_time[2]).timestamp())
+		elif type(start_time) == int:
+			start = start_time
+		elif start_time == None:
+			start = -1
 		else:
+			warnings.warn('Provide either a tuple (year, month, day) or a UNIX timestamp. start_time is defaulted to beginning of dataset.')
 			start = -1
 
-		if unix_end_time is not None:
-			end = unix_end_time
-		elif end_ymd is not None:
-			end = int(datetime(end_ymd[0], end_ymd[1], end_ymd[2]).timestamp())
-		else:
+		if type(end_time) == tuple:
+			end = int(datetime(end_time[0], end_time[1], end_time[2]).timestamp())
+		elif type(end_time) == int:
+			end = end_time
+		elif end_time == None:
 			end = 1e99
+		else:
+			warnings.warn('Provide either a tuple (year, month, day) or a UNIX timestamp. end_time is defaulted to end of dataset.')
 
-
-		ranged_forums = self.forums[(self.forums['index_date_created'] > start) & (self.forums['index_date_created'] < end)]
-		ranged_msgs = self.msgs[(self.msgs['msg_date'] > start) & (self.msgs['msg_date'] < end)]
+		forums = self.forums[(self.forums['index_date_created'] > start) & (self.forums['index_date_created'] < end)]
+		msgs = self.msgs[(self.msgs['msg_date'] > start) & (self.msgs['msg_date'] < end)]
 
 		if len(author_ids) > 0:
-			ranged_forums = ranged_forums[ranged_forums['index_author'].isin(author_ids)]
-			ranged_msgs = ranged_msgs[ranged_msgs['msg_author_id'].isin(author_ids)]
+			forums = forums[forums['index_author'].isin(author_ids)]
+			msgs = msgs[msgs['msg_author_id'].isin(author_ids)]
 
-		forums_ids = ['forum_post-' + str(x) for x in ranged_forums['index_id'].tolist()]
-		msgs_ids = ['direct_message-' + str(x) for x in ranged_msgs['msg_id'].tolist()]
-
-		ranged_ids = forums_ids + msgs_ids
-		timestamps = ranged_forums['index_date_created'].tolist() + ranged_msgs['msg_date'].tolist()
-
-		indices = [self.id_index_dict[x] for x in ranged_ids]
-
-		ranged_latent_vectors = self.latent_vectors[indices]
-
-		sort_indices = np.argsort(timestamps)
-		ranged_latent_vectors = ranged_latent_vectors[sort_indices]
-		timestamps = [timestamps[i] for i in sort_indices]
-		ranged_ids = [ranged_ids[i] for i in sort_indices]
-
-		posts = self.get_posts_from_post_ids(ranged_ids)
+		latent_vectors, timestamps, post_ids, posts = self.return_sorted(forums, msgs)
 
 		if split_by != '':
 			if split_by.lower() == 'day':
@@ -130,16 +194,24 @@ class IronmarchAnalysis:
 
 			split_dict = []
 			for split in split_indices:
-				split_latent_vectors = self.latent_vectors[split]
-				split_timestamps = [timestamps[i] for i in split]
-				split_ids = [ranged_ids[i] for i in split]
+				split_latent_vectors = latent_vectors[split]
+				split_timestamps = self.index_by_indices(timestamps, split)
+				split_ids = self.index_by_indices(post_ids, split)
 				split_posts = self.get_posts_from_post_ids(split_ids)
 
-				split_dict.append({'latent_vectors': split_latent_vectors, 'ids': split_ids, 'timestamps': split_timestamps, 'posts': split_posts})
+				split_forums, split_msgs = self.return_df_from_ids(forums, msgs, split_ids)
 
-			return split_dict
+				split_dict.append({'latent_vectors': split_latent_vectors, 'post_ids': split_ids, 'timestamps': split_timestamps, 'posts': split_posts})
 
-		return {'latent_vectors': ranged_latent_vectors,'ids': ranged_ids, 'timestamps': timestamps, 'posts': posts}
+			vals_dict = {'data': split_dict, 'forums': forums, 'msgs': msgs}
+			
+		else:
+
+			vals_dict = {'data': [{'latent_vectors': latent_vectors, 'post_ids': post_ids, 'timestamps': timestamps, 'posts': posts}], 'forums': forums, 'msgs': msgs}
+
+		return IronmarchAnalysis(dataset_path = self.dataset_path,
+			dataset = self.dataset,
+			values_dict=vals_dict)
 
 
 	def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
@@ -149,13 +221,14 @@ class IronmarchAnalysis:
 		'''
 
 		# Computes distances from latent vectors to every corner of simplex
-		latent_dim_size = self.latent_vectors.shape[1]
-		dists = np.zeros((latent_dim_size, self.latent_vectors.shape[0]))
-		for i, vertex in enumerate(np.eye(latent_dim_size)):
-			dists[i] = np.sqrt(np.sum(np.square(self.latent_vectors-vertex), axis=1))
+		nearest_indices = []
+		for latent in self.latent_vectors_split:
+			dists = np.zeros((self.latent_dim_size, latent.shape[0]))
+			for i, vertex in enumerate(np.eye(latent_dim_size)):
+				dists[i] = np.sqrt(np.sum(np.square(latent-vertex), axis=1))
 
-		# Get closest indices to each archetype by sorting
-		nearest_indices = np.argsort(dists)[:, :num_vectors_per_at]
+			# Get closest indices to each archetype by sorting
+			nearest_indices.append(np.argsort(dists)[:, :num_vectors_per_at])
 
 		return nearest_indices
 
@@ -163,14 +236,17 @@ class IronmarchAnalysis:
 	# Gets specified number of archetypal posts
 	# Only returns list of lists containing the posts. Update to have pandas option
 	def get_archetypal_posts(self, num_posts_per_at: int):
+		all_at_posts = []
 		nearest_indices = self.get_nearest_indices(num_posts_per_at)
-		latent_dim_size = self.latent_vectors.shape[1]
-		at_posts = []
-		for i in range(latent_dim_size):
-		    top_posts = [self.posts[k] for k in nearest_indices[i]]
-		    at_posts.append(top_posts)
-		return at_posts
 
+		for indices, latent in zip(nearest_indices, self.latent_vectors_split):
+			at_posts = []
+			for i in range(self.latent_dim_size):
+			    top_posts = [self.posts[k] for k in indices[i]]
+			    at_posts.append(top_posts)
+			all_at_posts.append(at_posts)
+
+		return all_at_posts
 
 	# Keyword extraction using TF-IDF algorithm. Return as pandas array
 	# TODO: Provide a visualization that sorts TF-IDF scores for each archetype and makes a bar plot
@@ -178,9 +254,8 @@ class IronmarchAnalysis:
 		# For each archetype, concatenate all posts into one string.
 		# We will take all the posts in a single archetype to be one document
 		nearest_indices = self.get_nearest_indices(num_posts_per_at)
-		latent_dim_size = self.latent_vectors.shape[1]
 		at_posts = []
-		for i in range(latent_dim_size):
+		for i in range(self.latent_dim_size):
 			top_posts = [self.posts[k] for k in nearest_indices[i]]
 			post = ''
 			for j in range(20):
@@ -209,17 +284,23 @@ class IronmarchAnalysis:
 		
 
 	# Visualizes pairwise angles between hyperplane normal vectors obtained from linear head
-	def compute_normal_hyperplanes(self, weights):
+	def normal_hyperplanes(self, weights):
 		class_names = ['nationality', 'ethnicity', 'religion', 'gender', 'sexual_orientation', 'disability', 'class']
 		
 		weights_norm = weights / np.linalg.norm(weights, axis=1)[:, np.newaxis]
 
-		dot_prods = np.zeros((7,7))
+		cos_similarity = np.zeros((7,7))
 		for i in range(7):
 		  for j in range(7):
-		    dot_prods[i][j] = np.dot(weights_norm[i], weights_norm[j])
+		    cos_similarity[i][j] = np.dot(weights_norm[i], weights_norm[j])
 
-		sns.heatmap(dot_prods, cmap=sns.cm.rocket_r, xticklabels=class_names, yticklabels=class_names)
+		sns.heatmap(cos_similarity, cmap=sns.cm.rocket_r, xticklabels=class_names, yticklabels=class_names)
+
+		closet_ats = []
+		for normal in weights_norm:
+			closet_ats.append(np.argmax(np.dot(np.eye(self.latent_dim_size, normal))))
+
+		return cos_similarity, closet_ats
 
 
 	# Get proportion of posts that lie on either side of hyperplane generated by side info
@@ -245,10 +326,31 @@ class IronmarchAnalysis:
 
 		return results
 
+	def __getitem__(self, key):
+		return self.values_dict[key]
+
+	def __str__(self):
+		printout = 'Dictionary object with keys: "data", "forums", "msgs"\nValue of "data" is a list containing {} element(s).\nEach element of the list is a dictionary with keys: "latent_vectors", "post_ids", "timestamps", "posts"'.format(len(self.values_dict['data']))
+		return printout
+
+	def __repr__(self):
+		printout = 'Dictionary object with keys: "data", "forums", "msgs"\nValue of "data" is a list containing {} element(s).\nEach element of the list is a dictionary with keys: "latent_vectors", "post_ids", "timestamps", "posts"'.format(len(self.values_dict['data']))
+		return printout
+
 
 	'''
 	track dirichlet-ness over time
 	track centroid movement over time (all users/certain bad actors)
 	use kernel density estimator to make plot along each archetypal direction (seaborn)
 	csv of embedded coordinates, time, user id, location - maybe average each coordinate according to location
+	'''
+
+	'''
+	[DONE] Get from author ids
+	[DONE] Nearest posts per time period
+	[DONE] cosine simililarity heat map
+	[DONE] archetypes pointing towards
+	have "get" return IronmarchAnalysis instance.
+	rectangle - xaxis = time, yaxis = proportion of archetype
+		each post has proportions of archetype
 	'''
