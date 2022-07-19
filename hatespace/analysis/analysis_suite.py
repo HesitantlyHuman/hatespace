@@ -265,15 +265,15 @@ class IronmarchAnalysis:
 				at_authors = []
 				for i in range(self.latent_dim_size):
 					f.write('===========Archetype {}==========='.format(i))
-				    top_posts = []
-				    top_timestamps = []
-				    top_authors = []
-				   
-				    for k in indices[i]:
-				    	f.write('{} -- {} -- Author {} -- {}'.format(k, self.ymd_timestamps[k], self.authors[k], self.posts[k]))
-				    	top_posts.append(self.posts[k])
-				    	top_timestamps.append(self.ymd_timestamps[k])
-				    	top_authors.append(self.authors[k])
+					top_posts = []
+					top_timestamps = []
+					top_authors = []
+
+					for k in indices[i]:
+						f.write('{} -- {} -- Author {} -- {}'.format(k, self.ymd_timestamps[k], self.authors[k], self.posts[k]))
+						top_posts.append(self.posts[k])
+						top_timestamps.append(self.ymd_timestamps[k])
+						top_authors.append(self.authors[k])
 
 				    at_posts.append(top_posts)
 				    at_timestamps.append(top_timestamps)
