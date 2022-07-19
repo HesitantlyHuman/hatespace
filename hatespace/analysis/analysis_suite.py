@@ -253,10 +253,9 @@ class IronmarchAnalysis:
 		all_at_authors = []
 
 		nearest_indices = self.get_nearest_indices(num_posts_per_at)
-
 		dir = os.path.join(save_to_folder, 'archetypal_posts')
 		if os.path.exists(dir):
-		    shutil.rmtree(dir)
+			shutil.rmtree(dir)
 		os.makedirs(dir)
 		
 		for idx, (indices, latent) in enumerate(zip(nearest_indices, self.latent_vectors_split)):
@@ -266,12 +265,13 @@ class IronmarchAnalysis:
 				at_authors = []
 				for i in range(self.latent_dim_size):
 					f.write('===========Archetype {}==========='.format(i))
+					f.write('\n')
 					top_posts = []
 					top_timestamps = []
 					top_authors = []
 
 					for j, k in enumerate(indices[i]):
-						f.write('{} -- {} -- Author {} -- {}'.format(j, self.ymd_timestamps[k], self.authors[k], self.posts[k]))
+						f.write('{} -- {} -- Author {} -- {}'.format(j, self.ymd_timestamps[k], self.authors[k], re.sub('[\n\t\r]', ' ', self.posts[k])))
 						f.write('\n')
 						top_posts.append(self.posts[k])
 						top_timestamps.append(self.ymd_timestamps[k])
