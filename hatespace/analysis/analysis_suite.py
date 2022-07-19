@@ -275,9 +275,9 @@ class IronmarchAnalysis:
 						top_timestamps.append(self.ymd_timestamps[k])
 						top_authors.append(self.authors[k])
 
-				    at_posts.append(top_posts)
-				    at_timestamps.append(top_timestamps)
-				    at_authors.append(top_authors)
+					at_posts.append(top_posts)
+					at_timestamps.append(top_timestamps)
+					at_authors.append(top_authors)
 
 				all_at_posts.append(at_posts)
 				all_at_posts.append(at_timestamps)
