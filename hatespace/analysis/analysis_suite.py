@@ -122,7 +122,8 @@ class IronmarchAnalysis:
 		msg_ids = ['direct_message-' + str(x) for x in msgs['msg_id'].tolist()]
 
 		post_ids = forum_ids + msg_ids
-		timestamps = forums['index_date_created'].tolist() + msgs['msg_date'].tolist()
+		unix_timestamps = forums['index_date_created'].tolist() + msgs['msg_date'].tolist()
+		ymd_timestamps = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in timestamps]
 		authors = forums['index_author'].tolist() + msgs['msg_author_id'].tolist()
 
 		indices = [self.id_index_dict[x] for x in post_ids]
@@ -131,8 +132,8 @@ class IronmarchAnalysis:
 
 		sort_indices = np.argsort(timestamps)
 		latent_vectors = latent_vectors[sort_indices]
-		unix_timestamps = self.index_by_indices(timestamps, sort_indices)
-		ymd_timestamps = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in timestamps]
+		unix_timestamps = self.index_by_indices(unix_timestamps, sort_indices)
+		ymd_timestamps = self.index_by_indices(ymd_timestamps, sort_indices)
 		post_ids = self.index_by_indices(post_ids, sort_indices)
 		posts = self.get_posts_from_post_ids(post_ids)
 		authors = self.index_by_indices(authors, sort_indices)
