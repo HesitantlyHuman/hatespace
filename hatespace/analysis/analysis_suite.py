@@ -270,8 +270,9 @@ class IronmarchAnalysis:
 					top_timestamps = []
 					top_authors = []
 
-					for k in indices[i]:
-						f.write('{} -- {} -- Author {} -- {}'.format(k, self.ymd_timestamps[k], self.authors[k], self.posts[k]))
+					for j, k in enumerate(indices[i]):
+						f.write('{} -- {} -- Author {} -- {}'.format(j, self.ymd_timestamps[k], self.authors[k], self.posts[k]))
+						f.write('\n')
 						top_posts.append(self.posts[k])
 						top_timestamps.append(self.ymd_timestamps[k])
 						top_authors.append(self.authors[k])
