@@ -224,7 +224,7 @@ class IronmarchAnalysis:
 		nearest_indices = []
 		for latent in self.latent_vectors_split:
 			dists = np.zeros((self.latent_dim_size, latent.shape[0]))
-			for i, vertex in enumerate(np.eye(latent_dim_size)):
+			for i, vertex in enumerate(np.eye(self.latent_dim_size)):
 				dists[i] = np.sqrt(np.sum(np.square(latent-vertex), axis=1))
 
 			# Get closest indices to each archetype by sorting
