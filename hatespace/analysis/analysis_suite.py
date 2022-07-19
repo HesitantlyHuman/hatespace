@@ -130,7 +130,7 @@ class IronmarchAnalysis:
 
 		latent_vectors = self.latent_vectors[indices]
 
-		sort_indices = np.argsort(timestamps)
+		sort_indices = np.argsort(unix_timestamps)
 		latent_vectors = latent_vectors[sort_indices]
 		unix_timestamps = self.index_by_indices(unix_timestamps, sort_indices)
 		ymd_timestamps = self.index_by_indices(ymd_timestamps, sort_indices)
