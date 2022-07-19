@@ -123,7 +123,7 @@ class IronmarchAnalysis:
 
 		post_ids = forum_ids + msg_ids
 		unix_timestamps = forums['index_date_created'].tolist() + msgs['msg_date'].tolist()
-		ymd_timestamps = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in timestamps]
+		ymd_timestamps = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in unix_timestamps]
 		authors = forums['index_author'].tolist() + msgs['msg_author_id'].tolist()
 
 		indices = [self.id_index_dict[x] for x in post_ids]
