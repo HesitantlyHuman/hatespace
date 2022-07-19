@@ -24,6 +24,7 @@ import os
 from datetime import datetime
 import warnings
 import itertools
+import shutil
 
 
 class IronmarchAnalysis:
