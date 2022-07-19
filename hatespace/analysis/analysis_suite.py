@@ -259,7 +259,7 @@ class IronmarchAnalysis:
 		os.makedirs(dir)
 		
 		for idx, (indices, latent) in enumerate(zip(nearest_indices, self.latent_vectors_split)):
-			with open(os.join(dir, 'top_archetypal_{}.txt'.format(idx)), 'w') as f:
+			with open(os.path.join(dir, 'top_archetypal_{}.txt'.format(idx)), 'w') as f:
 				at_posts = []
 				at_timestamps = []
 				at_authors = []
