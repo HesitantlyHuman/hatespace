@@ -47,23 +47,29 @@ class IronmarchAnalysis:
 		if values_dict != {}:
 			self.values_dict = values_dict
 			self.latent_vectors_split = []
+			self.unix_timestamps = []
+			self.ymd_timestamps = []
 			self.post_ids = []
-			self.timestamps = []
 			self.posts = []
+			self.authors = []
 
 			for x in values_dict['data']:
 				self.latent_vectors_split.append(x['latent_vectors'])
 				self.post_ids.append(x['post_ids'])
-				self.timestamps.append(x['timestamps'])
+				self.unix_timestamps.append(x['unix_timestamps'])
+				self.ymd_timestamps.append(x['ymd_timestamps'])
 				self.posts.append(x['posts'])
+				self.authors.append(x['authors'])
 
 			if len(self.latent_vectors_split) == 0 or self.latent_vectors_split[0].shape[0] == 0:
 				raise ValueError('No posts with specified conditions. Specified time range is outside the original time range and/or given author(s) have no posts in time range.')
 
 			self.latent_vectors = np.concatenate(self.latent_vectors_split, axis=0)
+			self.unix_timestamps = list(itertools.chain(*self.unix_timestamps))
+			self.ymd_timestamps = list(itertools.chain(*self.ymd_timestamps))
 			self.post_ids = list(itertools.chain(*self.post_ids))
-			self.timestamps = list(itertools.chain(*self.timestamps))
 			self.posts = list(itertools.chain(*self.posts))
+			self.authors = list(itertools.chain(*self.authors))
 
 			self.forums = values_dict['forums']
 			self.msgs = values_dict['msgs']
@@ -94,15 +100,12 @@ class IronmarchAnalysis:
 				post_ids = self.post_ids
 			)
 
-			self.latent_vectors, self.timestamps, self.post_ids, self.posts = self.return_sorted(self.forums, self.msgs)
+			self.latent_vectors, self.unix_timestamps, self.ymd_timestamps, self.post_ids, self.posts, self.authors = self.return_sorted(self.forums, self.msgs)
 
 			self.latent_vectors_split = [self.latent_vectors]
-
-			self.values_dict = {'data': [{'latent_vectors': self.latent_vectors, 'post_ids': self.post_ids, 'timestamps': self.timestamps, 'posts': self.posts}], 'forums': self.forums, 'msgs': self.msgs}
 			
-			#self.author_ids = self.forums['index_author'].tolist() + self.msgs['msg_author_id']
-			#self.author_ids = self.index_by_indices(self.author_ids, sort_indices)
-
+			self.values_dict = {'data': [self.make_data_dict(latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors)], 'forums': self.forums, 'msgs': self.msgs}
+			
 		self.latent_dim_size = self.latent_vectors.shape[1]
 
 
@@ -119,6 +122,7 @@ class IronmarchAnalysis:
 
 		post_ids = forum_ids + msg_ids
 		timestamps = forums['index_date_created'].tolist() + msgs['msg_date'].tolist()
+		authors = forums['index_author'].tolist() + msgs['msg_author_id']
 
 		indices = [self.id_index_dict[x] for x in post_ids]
 
@@ -126,11 +130,13 @@ class IronmarchAnalysis:
 
 		sort_indices = np.argsort(timestamps)
 		latent_vectors = latent_vectors[sort_indices]
-		timestamps = self.index_by_indices(timestamps, sort_indices)
+		unix_timestamps = self.index_by_indices(timestamps, sort_indices)
+		ymd_timestamps = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in timestamps]
 		post_ids = self.index_by_indices(post_ids, sort_indices)
 		posts = self.get_posts_from_post_ids(post_ids)
+		authors = self.index_by_indices(authors, sort_indices)
 
-		return latent_vectors, timestamps, post_ids, posts
+		return latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors
 
 	def return_df_from_ids(self, forums, msgs, post_ids):
 		forum_ids = [int(x.replace('forum_post-', '')) for x in post_ids if 'forum_post' in x]
@@ -175,13 +181,13 @@ class IronmarchAnalysis:
 			forums = forums[forums['index_author'].isin(author_ids)]
 			msgs = msgs[msgs['msg_author_id'].isin(author_ids)]
 
-		latent_vectors, timestamps, post_ids, posts = self.return_sorted(forums, msgs)
+		latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors = self.return_sorted(forums, msgs)
 
 		if split_by != '':
 			if split_by.lower() == 'day':
-				dates = [datetime.fromtimestamp(x).strftime('%d/%m/%Y') for x in timestamps]
+				dates = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in timestamps]
 			elif split_by.lower() == 'month':
-				dates = [datetime.fromtimestamp(x).strftime('%m/%Y') for x in timestamps]
+				dates = [datetime.fromtimestamp(x).strftime('%Y/%m') for x in timestamps]
 			current = None
 			split_indices = []
 
@@ -195,23 +201,28 @@ class IronmarchAnalysis:
 			split_dict = []
 			for split in split_indices:
 				split_latent_vectors = latent_vectors[split]
-				split_timestamps = self.index_by_indices(timestamps, split)
+				split_unix_timestamps = self.index_by_indices(unix_timestamps, split)
+				split_ymd_timestamps = self.index_by_indices(ymd_timestamps, split)
 				split_ids = self.index_by_indices(post_ids, split)
 				split_posts = self.get_posts_from_post_ids(split_ids)
+				split_authors = self.index_by_indices(authors, split)
 
 				split_forums, split_msgs = self.return_df_from_ids(forums, msgs, split_ids)
 
-				split_dict.append({'latent_vectors': split_latent_vectors, 'post_ids': split_ids, 'timestamps': split_timestamps, 'posts': split_posts})
+				split_dict.append(self.make_data_dict(split_latent_vectors, split_unix_timestamps, split_ymd_timestamps, split_ids, split_posts, split_authors))
 
 			vals_dict = {'data': split_dict, 'forums': forums, 'msgs': msgs}
 			
 		else:
 
-			vals_dict = {'data': [{'latent_vectors': latent_vectors, 'post_ids': post_ids, 'timestamps': timestamps, 'posts': posts}], 'forums': forums, 'msgs': msgs}
+			vals_dict = {'data': [self.make_data_dict(latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors)], 'forums': forums, 'msgs': msgs}
 
 		return IronmarchAnalysis(dataset_path = self.dataset_path,
 			dataset = self.dataset,
 			values_dict=vals_dict)
+
+	def make_data_dict(self, latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors):
+		return {'latent_vectors': latent_vectors, 'unix_timestamps': unix_timestamps, 'ymd_timestamps': ymd_timestamps, 'post_ids': post_ids, 'posts': posts, 'authors': authors}
 
 
 	def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
@@ -235,18 +246,44 @@ class IronmarchAnalysis:
 
 	# Gets specified number of archetypal posts
 	# Only returns list of lists containing the posts. Update to have pandas option
-	def get_archetypal_posts(self, num_posts_per_at: int):
+	def get_archetypal_posts(self, num_posts_per_at: int, save_to_folder = ''):
 		all_at_posts = []
+		all_at_timestamps = []
+		all_at_authors = []
+
 		nearest_indices = self.get_nearest_indices(num_posts_per_at)
 
-		for indices, latent in zip(nearest_indices, self.latent_vectors_split):
-			at_posts = []
-			for i in range(self.latent_dim_size):
-			    top_posts = [self.posts[k] for k in indices[i]]
-			    at_posts.append(top_posts)
-			all_at_posts.append(at_posts)
+		dir = os.path.join(save_to_folder, 'archetypal_posts')
+		if os.path.exists(dir):
+		    shutil.rmtree(dir)
+		os.makedirs(dir)
+		
+		for idx, (indices, latent) in enumerate(zip(nearest_indices, self.latent_vectors_split)):
+			with open(os.join(dir, 'top_archetypal_{}.txt'.format(idx)), 'w') as f:
+				at_posts = []
+				at_timestamps = []
+				at_authors = []
+				for i in range(self.latent_dim_size):
+					f.write('===========Archetype {}==========='.format(i))
+				    top_posts = []
+				    top_timestamps = []
+				    top_authors = []
+				   
+				    for k in indices[i]:
+				    	f.write('{} -- {} -- Author {} -- {}'.format(k, self.ymd_timestamps[k], self.authors[k], self.posts[k]))
+				    	top_posts.append(self.posts[k])
+				    	top_timestamps.append(self.ymd_timestamps[k])
+				    	top_authors.append(self.authors[k])
 
-		return all_at_posts
+				    at_posts.append(top_posts)
+				    at_timestamps.append(top_timestamps)
+				    at_authors.append(top_authors)
+
+				all_at_posts.append(at_posts)
+				all_at_posts.append(at_timestamps)
+				all_at_posts.append(at_authors)
+
+		return all_at_posts, at_timestamps, at_authors
 
 	# Keyword extraction using TF-IDF algorithm. Return as pandas array
 	# TODO: Provide a visualization that sorts TF-IDF scores for each archetype and makes a bar plot
