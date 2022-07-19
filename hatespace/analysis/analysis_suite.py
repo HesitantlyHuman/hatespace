@@ -104,7 +104,7 @@ class IronmarchAnalysis:
 
 			self.latent_vectors_split = [self.latent_vectors]
 			
-			self.values_dict = {'data': [self.make_data_dict(latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors)], 'forums': self.forums, 'msgs': self.msgs}
+			self.values_dict = {'data': [self.make_data_dict(self.latent_vectors, self.unix_timestamps, self.ymd_timestamps, self.post_ids, self.posts, self.authors)], 'forums': self.forums, 'msgs': self.msgs}
 			
 		self.latent_dim_size = self.latent_vectors.shape[1]
 
