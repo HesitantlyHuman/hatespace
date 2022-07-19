@@ -186,9 +186,9 @@ class IronmarchAnalysis:
 
 		if split_by != '':
 			if split_by.lower() == 'day':
-				dates = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in timestamps]
+				dates = [datetime.fromtimestamp(x).strftime('%Y/%m/%d') for x in unix_timestamps]
 			elif split_by.lower() == 'month':
-				dates = [datetime.fromtimestamp(x).strftime('%Y/%m') for x in timestamps]
+				dates = [datetime.fromtimestamp(x).strftime('%Y/%m') for x in unix_timestamps]
 			current = None
 			split_indices = []
 
