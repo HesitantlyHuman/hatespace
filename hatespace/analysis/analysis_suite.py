@@ -256,7 +256,7 @@ class IronmarchAnalysis:
 			# Get closest indices to each archetype by sorting
 			indices = np.argsort(dists)[:, :num_vectors_per_at]
 			nearest_indices.append(indices)
-			nearest_vectors.append(latent[indices])
+			nearest_vectors.append(np.concatenate([latent[x] for x in indices]))
 
 		return nearest_indices, nearest_vectors
 
