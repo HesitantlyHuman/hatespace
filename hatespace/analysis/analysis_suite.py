@@ -47,30 +47,19 @@ class IronmarchAnalysis:
 
 		if values_dict != {}:
 			self.values_dict = values_dict
-			self.latent_vectors_split = []
-			self.unix_timestamps = []
-			self.ymd_timestamps = []
-			self.post_ids = []
-			self.posts = []
-			self.authors = []
-
-			for x in values_dict['data']:
-				self.latent_vectors_split.append(x['latent_vectors'])
-				self.post_ids.append(x['post_ids'])
-				self.unix_timestamps.append(x['unix_timestamps'])
-				self.ymd_timestamps.append(x['ymd_timestamps'])
-				self.posts.append(x['posts'])
-				self.authors.append(x['authors'])
+			
+			self.latent_vectors_split = [x['latent_vectors'] for x in values_dict['data']]
+			self.posts_split = [x['posts'] for x in values_dict['data']]
+			self.authors_split = [x['authors'] for x in values_dict['data']]
+			self.ymd_timestamps_split = [x['ymd_timestamps'] for x in values_dict['data']]
+			self.post_ids_split = [x['post_ids'] for x in values_dict['data']]
 
 			if len(self.latent_vectors_split) == 0 or self.latent_vectors_split[0].shape[0] == 0:
 				raise ValueError('No posts with specified conditions. Specified time range is outside the original time range and/or given author(s) have no posts in time range.')
 
 			self.latent_vectors = np.concatenate(self.latent_vectors_split, axis=0)
-			self.unix_timestamps = list(itertools.chain(*self.unix_timestamps))
-			self.ymd_timestamps = list(itertools.chain(*self.ymd_timestamps))
-			self.post_ids = list(itertools.chain(*self.post_ids))
-			self.posts = list(itertools.chain(*self.posts))
-			self.authors = list(itertools.chain(*self.authors))
+			self.posts = list(itertools.chain(*self.posts_split))
+			self.post_ids = list(itertools.chain(*self.post_ids_split))
 
 			self.forums = values_dict['forums']
 			self.msgs = values_dict['msgs']
@@ -79,14 +68,12 @@ class IronmarchAnalysis:
 
 		else:
 
-			if latent_vectors is not None:
-				self.latent_vectors = latent_vectors
-			elif latent_vectors_file_path is not '':
+			if latent_vectors_file_path is not '':
 				try:
 					self.latent_vectors = np.load(latent_vectors_file_path)
 				except:
 					print('Latent vectors file must by .npy file')
-			else:
+			elif latent_vectors is None:
 				raise ValueError('Must provide path to a latent vectors file, or provide a latent vectors array directly')
 
 			self.posts = [x['data'] for x in self.dataset]
@@ -101,11 +88,18 @@ class IronmarchAnalysis:
 				post_ids = self.post_ids
 			)
 
-			self.latent_vectors, self.unix_timestamps, self.ymd_timestamps, self.post_ids, self.posts, self.authors = self.return_sorted(self.forums, self.msgs)
-
-			self.latent_vectors_split = [self.latent_vectors]
+			latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors = self.return_sorted(self.forums, self.msgs)
 			
-			self.values_dict = {'data': [self.make_data_dict(self.latent_vectors, self.unix_timestamps, self.ymd_timestamps, self.post_ids, self.posts, self.authors)], 'forums': self.forums, 'msgs': self.msgs}
+			self.values_dict = {'data': [self.make_data_dict(latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors)], 'forums': self.forums, 'msgs': self.msgs}
+
+			self.latent_vectors = latent_vectors
+			self.posts = posts
+
+			self.latent_vectors_split = [latent_vectors]
+			self.posts_split = [posts]
+			self.authors_split = [authors]
+			self.ymd_timestamps_split = [ymd_timestamps]
+			self.post_ids_split = [post_ids]
 			
 		self.latent_dim_size = self.latent_vectors.shape[1]
 
@@ -259,24 +253,27 @@ class IronmarchAnalysis:
 			shutil.rmtree(dir)
 		os.makedirs(dir)
 		
-		for idx, (indices, latent) in enumerate(zip(nearest_indices, self.latent_vectors_split)):
+		for idx, (indices, posts, timestamps, authors, post_ids) in enumerate(zip(nearest_indices, self.posts_split, self.ymd_timestamps_split, self.authors_split, self.post_ids_split)):
 			with open(os.path.join(dir, 'top_archetypal_{}.txt'.format(idx)), 'w') as f:
 				at_posts = []
 				at_timestamps = []
 				at_authors = []
+
 				for i in range(self.latent_dim_size):
-					f.write('===========Archetype {}==========='.format(i))
+					f.write('='*35 + ' Archetype {} '.format(i) + '='*35)
 					f.write('\n')
 					top_posts = []
 					top_timestamps = []
 					top_authors = []
 
 					for j, k in enumerate(indices[i]):
-						f.write('{} -- {} -- Author {} -- {}'.format(j, self.ymd_timestamps[k], self.authors[k], re.sub('[\n\t\r]', ' ', self.posts[k])))
-						f.write('\n')
-						top_posts.append(self.posts[k])
-						top_timestamps.append(self.ymd_timestamps[k])
-						top_authors.append(self.authors[k])
+						f.write('{} -- {} -- Author {} -- ID {} -- {}'.format(j, timestamps[k], authors[k], post_ids[k], re.sub('[\n\t\r]', ' ', posts[k])))
+						f.write('\n\n')
+						top_posts.append(posts[k])
+						top_timestamps.append(timestamps[k])
+						top_authors.append(authors[k])
+
+					f.write('\n')
 
 					at_posts.append(top_posts)
 					at_timestamps.append(top_timestamps)
@@ -286,7 +283,7 @@ class IronmarchAnalysis:
 				all_at_posts.append(at_timestamps)
 				all_at_posts.append(at_authors)
 
-		return all_at_posts, at_timestamps, at_authors
+		return {'posts': all_at_posts, 'timestamps': at_timestamps, 'authors': at_authors}
 
 	# Keyword extraction using TF-IDF algorithm. Return as pandas array
 	# TODO: Provide a visualization that sorts TF-IDF scores for each archetype and makes a bar plot
