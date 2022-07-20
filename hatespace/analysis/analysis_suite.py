@@ -94,6 +94,8 @@ class IronmarchAnalysis:
 
 			self.latent_vectors = latent_vectors
 			self.posts = posts
+			self.post_ids = post_ids
+			self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
 
 			self.latent_vectors_split = [latent_vectors]
 			self.posts_split = [posts]
