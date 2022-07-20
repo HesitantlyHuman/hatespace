@@ -282,8 +282,8 @@ class IronmarchAnalysis:
 					at_authors.append(top_authors)
 
 				all_at_posts.append(at_posts)
-				all_at_posts.append(at_timestamps)
-				all_at_posts.append(at_authors)
+				at_timestamps.append(at_timestamps)
+				at_authors.append(at_authors)
 
 		return {'posts': all_at_posts, 'timestamps': at_timestamps, 'authors': at_authors}
 
