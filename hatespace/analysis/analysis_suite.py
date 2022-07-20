@@ -48,18 +48,25 @@ class IronmarchAnalysis:
 		if values_dict != {}:
 			self.values_dict = values_dict
 			
+			self.latent_vectors_list = values_dict['data']['latent_vectors']
+			self.posts_list = values_dict['data']['posts']
+			self.authors_list = values_dict['data']['authors']
+			self.ymd_timestamps_list = values_dict['data']['ymd_timestamps']
+			self.post_ids_list = values_dict['data']['post_ids']
+
+			'''
 			self.latent_vectors_split = [x['latent_vectors'] for x in values_dict['data']]
 			self.posts_split = [x['posts'] for x in values_dict['data']]
 			self.authors_split = [x['authors'] for x in values_dict['data']]
 			self.ymd_timestamps_split = [x['ymd_timestamps'] for x in values_dict['data']]
 			self.post_ids_split = [x['post_ids'] for x in values_dict['data']]
-
-			if len(self.latent_vectors_split) == 0 or self.latent_vectors_split[0].shape[0] == 0:
+			'''
+			if len(self.latent_vectors_list) == 0 or self.latent_vectors_list[0].shape[0] == 0:
 				raise ValueError('No posts with specified conditions. Specified time range is outside the original time range and/or given author(s) have no posts in time range.')
 
-			self.latent_vectors = np.concatenate(self.latent_vectors_split, axis=0)
-			self.posts = list(itertools.chain(*self.posts_split))
-			self.post_ids = list(itertools.chain(*self.post_ids_split))
+			self.latent_vectors = np.concatenate(self.latent_vectors_list, axis=0)
+			self.posts = list(itertools.chain(*self.posts_list))
+			self.post_ids = list(itertools.chain(*self.post_ids_list))
 
 			self.forums = values_dict['forums']
 			self.msgs = values_dict['msgs']
@@ -90,18 +97,18 @@ class IronmarchAnalysis:
 
 			latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors = self.return_sorted(self.forums, self.msgs)
 			
-			self.values_dict = {'data': [self.make_data_dict(latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors)], 'forums': self.forums, 'msgs': self.msgs}
+			self.values_dict = {'data': self.make_data_dict([latent_vectors], [unix_timestamps], [ymd_timestamps], [post_ids], [posts], [authors]), 'forums': self.forums, 'msgs': self.msgs}
 
 			self.latent_vectors = latent_vectors
 			self.posts = posts
 			self.post_ids = post_ids
 			self.id_index_dict = dict((value, idx) for idx,value in enumerate(self.post_ids))
 
-			self.latent_vectors_split = [latent_vectors]
-			self.posts_split = [posts]
-			self.authors_split = [authors]
-			self.ymd_timestamps_split = [ymd_timestamps]
-			self.post_ids_split = [post_ids]
+			self.latent_vectors_list = [latent_vectors]
+			self.posts_list = [posts]
+			self.authors_list = [authors]
+			self.ymd_timestamps_list = [ymd_timestamps]
+			self.post_ids_list = [post_ids]
 			
 		self.latent_dim_size = self.latent_vectors.shape[1]
 
@@ -197,6 +204,15 @@ class IronmarchAnalysis:
 				time_indices.append(idx)
 
 			split_dict = []
+
+			latent_vectors_list = [latent_vectors[split] for split in split_indices]
+			unix_timestamps_list = [self.index_by_indices(unix_timestamps, split) for split in split_indices]
+			ymd_timestamps_list = [self.index_by_indices(ymd_timestamps, split) for split in split_indices]
+			post_ids_list = [self.index_by_indices(post_ids, split) for split in split_indices]
+			posts_list = [self.get_posts_from_post_ids(ids) for ids in post_ids_list]
+			authors_list = [self.index_by_indices(authors, split) for split in split_indices]
+
+			'''
 			for split in split_indices:
 				split_latent_vectors = latent_vectors[split]
 				split_unix_timestamps = self.index_by_indices(unix_timestamps, split)
@@ -208,12 +224,12 @@ class IronmarchAnalysis:
 				split_forums, split_msgs = self.return_df_from_ids(forums, msgs, split_ids)
 
 				split_dict.append(self.make_data_dict(split_latent_vectors, split_unix_timestamps, split_ymd_timestamps, split_ids, split_posts, split_authors))
-
-			vals_dict = {'data': split_dict, 'forums': forums, 'msgs': msgs}
+			'''
+			vals_dict = {'data': self.make_data_dict(latent_vectors_list, unix_timestamps_list, ymd_timestamps_list, post_ids_list, posts_list, authors_list), 'forums': forums, 'msgs': msgs}
 			
 		else:
 
-			vals_dict = {'data': [self.make_data_dict(latent_vectors, unix_timestamps, ymd_timestamps, post_ids, posts, authors)], 'forums': forums, 'msgs': msgs}
+			vals_dict = {'data': self.make_data_dict([latent_vectors], [unix_timestamps], [ymd_timestamps], [post_ids], [posts], [authors]), 'forums': forums, 'msgs': msgs}
 
 		return IronmarchAnalysis(dataset_path = self.dataset_path,
 			dataset = self.dataset,
@@ -231,7 +247,7 @@ class IronmarchAnalysis:
 
 		# Computes distances from latent vectors to every corner of simplex
 		nearest_indices = []
-		for latent in self.latent_vectors_split:
+		for latent in self.latent_vectors_list:
 			dists = np.zeros((self.latent_dim_size, latent.shape[0]))
 			for i, vertex in enumerate(np.eye(self.latent_dim_size)):
 				dists[i] = np.sqrt(np.sum(np.square(latent-vertex), axis=1))
@@ -255,7 +271,7 @@ class IronmarchAnalysis:
 			shutil.rmtree(dir)
 		os.makedirs(dir)
 		
-		for idx, (indices, posts, timestamps, authors, post_ids) in enumerate(zip(nearest_indices, self.posts_split, self.ymd_timestamps_split, self.authors_split, self.post_ids_split)):
+		for idx, (indices, posts, timestamps, authors, post_ids) in enumerate(zip(nearest_indices, self.posts_list, self.ymd_timestamps_list, self.authors_list, self.post_ids_list)):
 			with open(os.path.join(dir, 'top_archetypal_{}.txt'.format(idx)), 'w') as f:
 				at_posts = []
 				at_timestamps = []
