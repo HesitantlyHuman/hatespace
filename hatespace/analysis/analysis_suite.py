@@ -247,15 +247,18 @@ class IronmarchAnalysis:
 
 		# Computes distances from latent vectors to every corner of simplex
 		nearest_indices = []
+		nearest_vectors = []
 		for latent in self.latent_vectors_list:
 			dists = np.zeros((self.latent_dim_size, latent.shape[0]))
 			for i, vertex in enumerate(np.eye(self.latent_dim_size)):
 				dists[i] = np.sqrt(np.sum(np.square(latent-vertex), axis=1))
 
 			# Get closest indices to each archetype by sorting
-			nearest_indices.append(np.argsort(dists)[:, :num_vectors_per_at])
+			indices = np.argsort(dists)[:, :num_vectors_per_at]
+			nearest_indices.append(indices)
+			nearest_vectors.append(latent[indices])
 
-		return nearest_indices
+		return nearest_indices, nearest_vectors
 
 
 	# Gets specified number of archetypal posts
@@ -265,7 +268,7 @@ class IronmarchAnalysis:
 		all_at_timestamps = []
 		all_at_authors = []
 
-		nearest_indices = self.get_nearest_indices(num_posts_per_at)
+		nearest_indices, nearest_vectors = self.get_nearest_indices(num_posts_per_at)
 		dir = os.path.join(save_to_folder, 'archetypal_posts')
 		if os.path.exists(dir):
 			shutil.rmtree(dir)
@@ -298,10 +301,10 @@ class IronmarchAnalysis:
 					at_authors.append(top_authors)
 
 				all_at_posts.append(at_posts)
-				at_timestamps.append(at_timestamps)
-				at_authors.append(at_authors)
-
-		return {'posts': all_at_posts, 'timestamps': at_timestamps, 'authors': at_authors}
+				all_at_timestamps.append(at_timestamps)
+				all_at_authors.append(at_authors)
+			
+		return {'posts': all_at_posts, 'timestamps': at_timestamps, 'authors': at_authors, 'latent_vectors': nearest_vectors}
 
 	# Keyword extraction using TF-IDF algorithm. Return as pandas array
 	# TODO: Provide a visualization that sorts TF-IDF scores for each archetype and makes a bar plot
@@ -385,11 +388,11 @@ class IronmarchAnalysis:
 		return self.values_dict[key]
 
 	def __str__(self):
-		printout = 'Dictionary object with keys: "data", "forums", "msgs"\nValue of "data" is a list containing {} element(s).\nEach element of the list is a dictionary with keys: "latent_vectors", "post_ids", "timestamps", "posts"'.format(len(self.values_dict['data']))
+		printout = 'Dictionary object with keys: "data", "forums", "msgs"\nValue of "data" is another dictionary with keys: "latent_vectors", "post_ids", "timestamps", "posts". Each key is a list containing {} element(s)'.format(len(self.values_dict['data']))
 		return printout
 
 	def __repr__(self):
-		printout = 'Dictionary object with keys: "data", "forums", "msgs"\nValue of "data" is a list containing {} element(s).\nEach element of the list is a dictionary with keys: "latent_vectors", "post_ids", "timestamps", "posts"'.format(len(self.values_dict['data']))
+		printout = 'Dictionary object with keys: "data", "forums", "msgs"\nValue of "data" is another dictionary with keys: "latent_vectors", "post_ids", "timestamps", "posts". Each key is a list containing {} element(s)'.format(len(self.values_dict['data']))
 		return printout
 
 
