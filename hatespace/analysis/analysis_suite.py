@@ -356,7 +356,7 @@ class IronmarchAnalysis:
 
 		closet_ats = []
 		for normal in weights_norm:
-			closet_ats.append(np.argmax(np.dot(np.eye(self.latent_dim_size, normal))))
+			closet_ats.append(np.argmax(np.dot(np.eye(self.latent_dim_size), normal)))
 
 		return cos_similarity, closet_ats
 
