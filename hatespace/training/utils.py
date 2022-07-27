@@ -1,21 +1,11 @@
-from typing import List
-
+from typing import List, Union
+import torch
 import numpy as np
 
-STOPPING_EPOCHS = 4
+STOPPING_EPOCHS = 50
 
 
-def velocity_early_stopping(losses: List[float]) -> bool:
-    if len(losses) < STOPPING_EPOCHS:
-        return False
-    losses = np.array(losses)
-    deltas = losses[1:] - losses[:-1]
-    velocity_avg = np.mean(deltas)
-
-    return all(losses[-STOPPING_EPOCHS:] < velocity_avg)
-
-
-def absolute_early_stopping(losses: List[float]) -> bool:
+def absolute_early_stopping(losses: List[Union[float, torch.Tensor]]) -> bool:
     if len(losses) < STOPPING_EPOCHS:
         return False
     losses = np.array(losses)

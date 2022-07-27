@@ -1,4 +1,3 @@
-from random import randrange
 from typing import Callable
 
 import torch
@@ -36,7 +35,6 @@ class SampledDirichletLoss:
         self.sample_distance_function = sample_distance_function
         self.device = "cpu"
 
-        # Set dynamically during __call__
         self.num_dimensions = None
         self.distribution_sampler = None
 
@@ -58,10 +56,9 @@ class SampledDirichletLoss:
         assert (
             len(points.shape) == 2
         ), "Incorrect number of dimensions for SampledDirichletLoss!\nInputs must be 2 dimensional tensors with the format (batch_size, num_dimensions)."
-        batch_size, num_dimensions = points.shape
+        _, num_dimensions = points.shape
         if not num_dimensions == self.num_dimensions:
             self.distribution_sampler = self._get_sampler(num_dimensions)
-        # TODO Figure out how many samples is appropriate
         dirichlet_sample = self.distribution_sampler.sample([self.num_samples]).to(
             self.device
         )
@@ -91,8 +88,12 @@ class SequenceLoss:
 
     def __init__(
         self,
+        ignore_index=None,
     ) -> None:
-        self.loss_fn = torch.nn.CrossEntropyLoss()
+        if ignore_index is not None:
+            self.loss_fn = torch.nn.NLLLoss(ignore_index=ignore_index)
+        else:
+            self.loss_fn = torch.nn.NLLLoss()
 
     def __call__(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """Calculates the sequence loss.
@@ -114,6 +115,15 @@ class SequenceLoss:
         Returns:
             torch.Tensor: The resulting cross entropy loss.
         """
-        targets = targets.view(-1)
-        total_token_size = targets.shape[0]
-        return self.loss_fn(logits.view(total_token_size, -1), targets)
+        predictions = torch.nn.functional.log_softmax(logits, dim=2)
+        predictions = predictions[:, :-1, :].contiguous()
+        targets = targets[:, 1:]
+
+        rearranged_output = predictions.view(
+            predictions.shape[0] * predictions.shape[1], -1
+        )
+        rearranged_target = targets.contiguous().view(-1)
+
+        loss = self.loss_fn(rearranged_output, rearranged_target)
+
+        return loss
