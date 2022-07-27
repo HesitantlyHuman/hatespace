@@ -60,6 +60,8 @@ class IronmarchAnalysis:
         else:
             self.dataset = dataset
 
+        self.members = pd.read_csv(os.path.join(dataset_path, "core_members.csv"))
+
         if values_dict != {}:
             self.values_dict = values_dict
 
@@ -214,6 +216,7 @@ class IronmarchAnalysis:
         start_time: Optional[Union[Tuple[int, int, int], int]] = None,
         end_time: Optional[Union[Tuple[int, int, int], int]] = None,
         author_ids: Optional[list] = [],
+        author_names: Optional[list] = [],
         split_by: str = "",
     ) -> "IronmarchAnalysis":
 
@@ -253,6 +256,11 @@ class IronmarchAnalysis:
         if len(author_ids) > 0:
             forums = forums[forums["index_author"].isin(author_ids)]
             msgs = msgs[msgs["msg_author_id"].isin(author_ids)]
+
+        if len(author_names) > 0:
+        	ids = self.members[self.members['name'].isin(author_names)]['member_id'].tolist()
+            forums = forums[forums["index_author"].isin(ids)]
+            msgs = msgs[msgs["msg_author_id"].isin(ids)]
 
         (
             latent_vectors,
@@ -300,19 +308,6 @@ class IronmarchAnalysis:
                 self.index_by_indices(authors, split) for split in split_indices
             ]
 
-            """
-			for split in split_indices:
-				split_latent_vectors = latent_vectors[split]
-				split_unix_timestamps = self.index_by_indices(unix_timestamps, split)
-				split_ymd_timestamps = self.index_by_indices(ymd_timestamps, split)
-				split_ids = self.index_by_indices(post_ids, split)
-				split_posts = self.get_posts_from_post_ids(split_ids)
-				split_authors = self.index_by_indices(authors, split)
-
-				split_forums, split_msgs = self.return_df_from_ids(forums, msgs, split_ids)
-
-				split_dict.append(self.make_data_dict(split_latent_vectors, split_unix_timestamps, split_ymd_timestamps, split_ids, split_posts, split_authors))
-			"""
             vals_dict = {
                 "data": self.make_data_dict(
                     latent_vectors_list,
@@ -360,7 +355,6 @@ class IronmarchAnalysis:
     def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
         """
         Returns array of indices closest to all archetypes.
-
         """
 
         # Computes distances from latent vectors to every corner of simplex
