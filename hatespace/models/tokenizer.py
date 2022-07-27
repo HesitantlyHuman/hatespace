@@ -2,7 +2,7 @@ from typing import Callable, Sequence, Union, List, Dict, Any
 import torch
 import numpy as np
 from transformers import AutoTokenizer
-from hatespace.models.utils import get_sequence_bookends, listify_tokens
+from hatespace.models.nlp.utils import get_sequence_bookends, listify_tokens
 
 
 class Tokenizer:
