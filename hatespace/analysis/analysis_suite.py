@@ -436,31 +436,37 @@ class IronmarchAnalysis:
     def archetypes_tfidf_scores(self, num_posts_per_at: int):
         # For each archetype, concatenate all posts into one string.
         # We will take all the posts in a single archetype to be one document
-        nearest_indices = self.get_nearest_indices(num_posts_per_at)
-        at_posts = []
-        for i in range(self.latent_dim_size):
-            top_posts = [self.posts[k] for k in nearest_indices[i]]
-            post = ""
-            for j in range(20):
-                top = top_posts[j].lower()
-                top = re.sub(
-                    r"<url>", " ", top
-                )  # Can probably combine these two re lines
-                top = re.sub("[\n\t\r]", " ", top)
-                post += top
-                post += ""
-            at_posts.append(post)
+        nearest_indices, _ = self.get_nearest_indices(num_posts_per_at)
+        all_at_posts = []
+        for indices in nearest_indices:
+            at_posts = []
+            for i in range(self.latent_dim_size):
+                top_posts = [self.posts[k] for k in indices[i]]
+                post = ""
+                for j in range(num_posts_per_at):
+                    top = top_posts[j].lower()
+                    top = re.sub(
+                        r"<url>", " ", top
+                    )  # Can probably combine these two re lines
+                    top = re.sub("[\n\t\r]", " ", top)
+                    post += top
+                    post += ""
+                at_posts.append(post)
+
+            all_at_posts.append(at_posts)
 
         my_stop_words = text.ENGLISH_STOP_WORDS
         vectorizer = TfidfVectorizer(stop_words=my_stop_words)
-        vectors = vectorizer.fit_transform(at_posts)
 
-        feature_names = vectorizer.get_feature_names()
-        dense = vectors.todense()
-        denselist = dense.tolist()
-        df = pd.DataFrame(denselist, columns=feature_names)
+        tfidf_dataframes = []
+        for posts in at_posts:
+            vectors = vectorizer.fit_transform(posts)
+            feature_names = vectorizer.get_feature_names()
+            dense = vectors.todense()
+            denselist = dense.tolist()
+            tfidf_dataframes.append(pd.DataFrame(denselist, columns=feature_names))
 
-        return df
+        return tfidf_dataframes
 
     # TODO: Some way to obtain weights and biases of side information linear head
     def get_weights_and_biases():
