@@ -12,6 +12,7 @@ data
 
 # Training
 results
+checkpoints
 
 # Experimental Data
 trial_data.csv
