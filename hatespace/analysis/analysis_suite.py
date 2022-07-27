@@ -71,13 +71,6 @@ class IronmarchAnalysis:
             self.ymd_timestamps_list = values_dict["data"]["ymd_timestamps"]
             self.post_ids_list = values_dict["data"]["post_ids"]
 
-            """
-			self.latent_vectors_split = [x['latent_vectors'] for x in values_dict['data']]
-			self.posts_split = [x['posts'] for x in values_dict['data']]
-			self.authors_split = [x['authors'] for x in values_dict['data']]
-			self.ymd_timestamps_split = [x['ymd_timestamps'] for x in values_dict['data']]
-			self.post_ids_split = [x['post_ids'] for x in values_dict['data']]
-			"""
             if (
                 len(self.latent_vectors_list) == 0
                 or self.latent_vectors_list[0].shape[0] == 0
@@ -258,7 +251,7 @@ class IronmarchAnalysis:
             msgs = msgs[msgs["msg_author_id"].isin(author_ids)]
 
         if len(author_names) > 0:
-        	ids = self.members[self.members['name'].isin(author_names)]['member_id'].tolist()
+            ids = self.members[self.members['name'].isin(author_names)]['member_id'].tolist()
             forums = forums[forums["index_author"].isin(ids)]
             msgs = msgs[msgs["msg_author_id"].isin(ids)]
 
