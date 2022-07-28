@@ -31,7 +31,7 @@ def get_range_of_days(
     range_center: Union[int, Tuple[int, int, int]], days: int
 ) -> Tuple[int, int]:
     if isinstance(range_center, (list, tuple)):
-        range_center = datetime.date(*range_center)
+        range_center = datetime(*range_center)
     else:
         range_center = datetime.fromtimestamp(range_center)
     time_range = datetime.timedelta(days=days)
