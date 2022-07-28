@@ -292,7 +292,7 @@ class IronmarchAnalysis:
                 split_indices = []
                 timestamps = [datetime.fromtimestamp(x).replace(hour=0, minute=0, second=0) for x in unix_timestamps]
 
-                initial = timestamps[0]
+                initial = datetime.fromtimestamp(start)
                 
                 offset = 1
                 time_indices = []
