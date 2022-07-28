@@ -286,7 +286,7 @@ class IronmarchAnalysis:
                         split_indices.append(time_indices)
                     time_indices.append(idx)
 
-            elif bool(re.match("[0-9]+d$", split_by.lower()))
+            elif bool(re.match("[0-9]+d$", split_by.lower())):
                 delta = timedelta(days=int(split_by[:-1]))
 
                 split_indices = []
