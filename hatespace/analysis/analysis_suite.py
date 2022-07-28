@@ -21,7 +21,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction import text
 from hatespace.analysis.dirichlet_tools import DirichletGOF
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import warnings
 import itertools
 import shutil
@@ -265,26 +265,46 @@ class IronmarchAnalysis:
         ) = self.return_sorted(forums, msgs)
 
         if split_by != "":
-            if split_by.lower() == "day":
-                dates = [
-                    datetime.fromtimestamp(x).strftime("%Y/%m/%d")
-                    for x in unix_timestamps
-                ]
-            elif split_by.lower() == "month":
-                dates = [
-                    datetime.fromtimestamp(x).strftime("%Y/%m") for x in unix_timestamps
-                ]
-            current = None
-            split_indices = []
 
-            for idx, date in enumerate(dates):
-                if current != date:
-                    current = date
-                    time_indices = []
-                    split_indices.append(time_indices)
-                time_indices.append(idx)
+            if split_by.lower() == 'day' or split_by.lower() == 'month':
+                if split_by.lower() == "day":
+                    dates = [
+                        datetime.fromtimestamp(x).strftime("%Y/%m/%d")
+                        for x in unix_timestamps
+                    ]
+                elif split_by.lower() == "month":
+                    dates = [
+                        datetime.fromtimestamp(x).strftime("%Y/%m") for x in unix_timestamps
+                    ]
+                current = None
+                split_indices = []
 
-            split_dict = []
+                for idx, date in enumerate(dates):
+                    if current != date:
+                        current = date
+                        time_indices = []
+                        split_indices.append(time_indices)
+                    time_indices.append(idx)
+
+            elif bool(re.match("[0-9]+d$", split_by.lower()))
+                delta = timedelta(days=int(split_by[:-1]))
+
+                split_indices = []
+                timestamps = [datetime.fromtimestamp(x).replace(hour=0, minute=0, second=0) for x in unix_timestamps]
+
+                initial = timestamps[0]
+                
+                offset = 1
+                time_indices = []
+
+                for i, ts in enumerate(timestamps):
+                    if ts < initial + offset * delta:
+                        time_indices.append(i)
+                    else:
+                        split_indices.append(time_indices)
+                        time_indices = []
+                        offset += 1
+                split_indices.append(time_indices)
 
             latent_vectors_list = [latent_vectors[split] for split in split_indices]
             unix_timestamps_list = [
@@ -552,18 +572,18 @@ class IronmarchAnalysis:
         return printout
 
     """
-	track dirichlet-ness over time
-	track centroid movement over time (all users/certain bad actors)
-	use kernel density estimator to make plot along each archetypal direction (seaborn)
-	csv of embedded coordinates, time, user id, location - maybe average each coordinate according to location
-	"""
+    track dirichlet-ness over time
+    track centroid movement over time (all users/certain bad actors)
+    use kernel density estimator to make plot along each archetypal direction (seaborn)
+    csv of embedded coordinates, time, user id, location - maybe average each coordinate according to location
+    """
 
     """
-	[DONE] Get from author ids
-	[DONE] Nearest posts per time period
-	[DONE] cosine simililarity heat map
-	[DONE] archetypes pointing towards
-	have "get" return IronmarchAnalysis instance.
-	rectangle - xaxis = time, yaxis = proportion of archetype
-		each post has proportions of archetype
-	"""
+    [DONE] Get from author ids
+    [DONE] Nearest posts per time period
+    [DONE] cosine simililarity heat map
+    [DONE] archetypes pointing towards
+    have "get" return IronmarchAnalysis instance.
+    rectangle - xaxis = time, yaxis = proportion of archetype
+        each post has proportions of archetype
+    """
