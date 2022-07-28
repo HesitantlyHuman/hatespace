@@ -34,7 +34,7 @@ def get_range_of_days(
         range_center = datetime(*range_center)
     else:
         range_center = datetime.fromtimestamp(range_center)
-    time_range = datetime.timedelta(days=days)
+    time_range = timedelta(days=days)
     start_time = range_center - time_range
     end_time = range_center + time_range
     range_center = time.mktime(range_center.timetuple())
