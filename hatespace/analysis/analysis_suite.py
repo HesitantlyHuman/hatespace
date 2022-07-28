@@ -306,6 +306,7 @@ class IronmarchAnalysis:
                         offset += 1
                 split_indices.append(time_indices)
 
+
             latent_vectors_list = [latent_vectors[split] for split in split_indices]
             unix_timestamps_list = [
                 self.index_by_indices(unix_timestamps, split) for split in split_indices
