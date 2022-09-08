@@ -49,7 +49,7 @@ lr_scheduler = get_scheduler(
 loss_fn = SequenceLoss(ignore_index=tokenizer.pad_token_id)
 
 trainer = EncoderDecoderTrainer(
-    "checkpoints/encoder_decoder/lower_lr_rate",
+    "checkpoints/encoder_decoder/test",
     model=model,
     optimizer=optimizer,
     learning_rate_scheduler=lr_scheduler,

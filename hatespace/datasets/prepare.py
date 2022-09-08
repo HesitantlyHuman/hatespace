@@ -2,7 +2,6 @@ from typing import Tuple
 import torch
 from hatespace.datasets import IronMarch, DataLoader
 from hatespace.models.tokenizer import Tokenizer
-from datasets import load_dataset
 from torch.utils.data._utils.collate import default_collate
 
 
@@ -28,6 +27,8 @@ def prepare_cc_news_dataloaders(
     validation_proportion: float = 0.1,
     root: str = "data/cc_news",
 ) -> Tuple[DataLoader, DataLoader]:
+    from datasets import load_dataset
+
     dataset = load_dataset("cc_news", cache_dir=root, keep_in_memory=True)["train"]
     tokenizer._return_as_list = False
 
