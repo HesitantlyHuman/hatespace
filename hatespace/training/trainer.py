@@ -1,24 +1,27 @@
-from typing import Dict, Callable, Generator, Union, Any
-from hatespace.training.utils import absolute_early_stopping
-import torch
-from tqdm import tqdm
-import numpy as np
-import os
+from typing import Dict, Callable, Generator, Union, Any, Tuple
 
+import os
+import torch
+import numpy as np
+from tqdm import tqdm
 from transformers import logging
+
+import hatespace
+from hatespace.training.utils import absolute_early_stopping
 
 logging.set_verbosity_error()
 
-class EncoderDecoderTrainer:
+
+class HatespaceTrainer:
     def __init__(
         self,
         experiment_root: str,
-        model: torch.nn.Module,
+        model: hatespace.models.archetypal.TransformerArchetypal,
         optimizer: torch.optim.Optimizer,
         learning_rate_scheduler: torch.optim.lr_scheduler._LRScheduler,
-        loss_function: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-        training_steps: int,
-        validation_steps: int,
+        loss_function: Callable[
+            [torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor
+        ],
         epochs: int,
         checkpoint_name: str = "checkpoint",
     ) -> None:
@@ -26,7 +29,7 @@ class EncoderDecoderTrainer:
         self.optimizer = optimizer
         self.learning_rate_scheduler = learning_rate_scheduler
         self.config = {
-            "training_steps": epochs
+            "epochs": epochs,
         }
         self.state = {"epoch": 0, "training_history": [], "validation_history": []}
 
@@ -51,19 +54,29 @@ class EncoderDecoderTrainer:
             )
         self.to(next(self.model.parameters()).device)
         old_train_function = self.train
-        self.train = lambda training_dataloader, validation_dataloader, device=None: self._cleanup_if_exception(
-            old_train_function(
-                training_dataloader=training_dataloader,
-                validation_dataloader=validation_dataloader,
-                device=device,
+
+        def train(
+            training_dataloader: torch.utils.data.DataLoader,
+            validation_dataloader: torch.utils.data.DataLoader,
+            device: str = None,
+        ):
+            return self._cleanup_if_exception(
+                old_train_function(
+                    training_dataloader=training_dataloader,
+                    validation_dataloader=validation_dataloader,
+                    device=device,
+                )
             )
-        )
+
+        self.train = train
 
     def to(self, device: Union[str, torch.device]) -> None:
         self.device = device
         self.model.to(device=device)
 
-    def batch_prediction(self, batch: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def batch_prediction(
+        self, batch: Dict[str, torch.Tensor]
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         input_ids = batch["data"]["input_ids"].to(self.device)
         attention_mask = batch["data"]["attention_mask"].to(self.device)
         model_outputs = self.model(
@@ -72,18 +85,26 @@ class EncoderDecoderTrainer:
             attention_mask=attention_mask,
             decoder_attention_mask=attention_mask,
         )
-        predicted_sequence_logits = model_outputs.logits
+        predicted_sequence_logits, embeddings = (
+            model_outputs.logits,
+            model_outputs.embeddings,
+        )
         del model_outputs
 
-        return predicted_sequence_logits
+        return predicted_sequence_logits, embeddings
 
     def calculate_loss(
         self,
         batch: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
         input_ids = batch["data"]["input_ids"].to(self.device)
-        model_predictions = self.batch_prediction(batch=batch)
-        loss = self.loss_function(model_predictions, input_ids)
+        model_predictions, embeddings = self.batch_prediction(batch=batch)
+        print(embeddings.shape)
+        loss = self.loss_function(
+            model_predictions,
+            input_ids,
+            embeddings,
+        )
 
         return loss
 
@@ -147,25 +168,7 @@ class EncoderDecoderTrainer:
         if not device is None:
             self.to(device=device)
 
-        def create_data_generator(
-            data_loader: torch.utils.data.DataLoader, num_steps: int
-        ) -> Generator[dict, None, None]:
-            n_batches = 0
-            while n_batches < num_steps:
-                for batch in data_loader:
-                    yield batch
-                    n_batches += 1
-            return None
-
-        training_dataloader = create_data_generator(
-            training_dataloader, self.config["training_steps"]
-        )
-        validation_dataloader = create_data_generator(
-            training_dataloader, self.config["validation_steps"]
-        )
-
         epochs = self.epochs
-
         for epoch in range(self.state["epoch"], epochs):
             print(f"--- Epoch {epoch}/{epochs} ---")
             self.state["epoch"] = epoch
@@ -194,6 +197,7 @@ class EncoderDecoderTrainer:
                 )
                 break
 
+        # TODO fix
         print(f"Finished training. The best model can be found at {None}.")
         return min(self.state["validation_history"])
 

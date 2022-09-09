@@ -1,33 +1,14 @@
 from typing import Dict, Callable, Generator, Union, Any
-from hatespace.training.utils import absolute_early_stopping
-import torch
-from tqdm import tqdm
-import numpy as np
-import os
 
+import os
+import torch
+import numpy as np
+from tqdm import tqdm
 from transformers import logging
 
+from hatespace.training.utils import absolute_early_stopping, GeneratorSlice
+
 logging.set_verbosity_error()
-
-
-class _GeneratorSlice:
-    def __init__(self, generator: Generator, n: int) -> None:
-        self.generator = generator
-        self.n = n
-        self._current_n = 0
-
-    def __len__(self):
-        return self.n
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self._current_n < self.n:
-            self._current_n += 1
-            return next(self.generator)
-        else:
-            raise StopIteration
 
 
 class EncoderDecoderTrainer:
@@ -193,7 +174,7 @@ class EncoderDecoderTrainer:
             print(f"--- Epoch {epoch}/{epochs} ---")
             self.state["epoch"] = epoch
             self.model.train()
-            training_segment = _GeneratorSlice(
+            training_segment = GeneratorSlice(
                 training_dataloader, self.config["checkpoint_frequency"]
             )
             training_loss = self.run_epoch(
@@ -201,7 +182,7 @@ class EncoderDecoderTrainer:
             )
             self.state["training_history"].append(training_loss)
             self.model.eval()
-            validation_segment = _GeneratorSlice(
+            validation_segment = GeneratorSlice(
                 validation_dataloader, self.config["validation_length"]
             )
             validation_loss = self.run_epoch(

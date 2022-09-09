@@ -117,7 +117,7 @@ class TransformerArchetypal(EncoderDecoderModel):
             )
 
         predicted_encoder_hidden_states, embeddings = self.inner_embedder(
-            encoder_outputs[0]
+            encoder_outputs.last_hidden_state
         )
 
         if decoder_input_ids is None:
@@ -173,18 +173,18 @@ class TransformerArchetypal(EncoderDecoderModel):
         )
 
 
-class LinearArchetypal(Embedder):
+class ArchetypalHead(Embedder):
     def __init__(self, input_dimensions, num_archetypes) -> None:
         encoder = torch.nn.Sequential(
-            torch.nn.Linear(input_dimensions, 512),
+            torch.nn.Linear(input_dimensions, 100),
             torch.nn.ReLU(),
-            torch.nn.Linear(512, num_archetypes),
+            torch.nn.Linear(100, num_archetypes),
             torch.nn.Softmax(dim=1),
         )
         decoder = torch.nn.Sequential(
-            torch.nn.Linear(num_archetypes, 512),
+            torch.nn.Linear(num_archetypes, 100),
             torch.nn.ReLU(),
-            torch.nn.Linear(512, input_dimensions),
+            torch.nn.Linear(100, input_dimensions),
             torch.nn.ReLU(),
         )
         super().__init__(encoder=encoder, decoder=decoder)
@@ -192,6 +192,7 @@ class LinearArchetypal(Embedder):
     def forward(self, x):
         input_shape = x.shape
         x = torch.flatten(x, start_dim=1)
+        print(x.shape)
         embedding = self.encoder(x)
         output = torch.reshape(self.decoder(embedding), input_shape)
         return (output, embedding)

@@ -4,6 +4,34 @@ import torch
 import geomloss
 
 
+class HatespaceMultiCriterion:
+    def __init__(
+        self,
+        reconstruction_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+        distribution_loss: Callable[[torch.Tensor], torch.Tensor],
+        reconstruction_loss_weight: float = 1.0,
+        distribution_loss_weight: float = 1.0,
+    ):
+        self.reconstruction_loss = reconstruction_loss
+        self.distribution_loss = distribution_loss
+        self.reconstruction_loss_weight = reconstruction_loss_weight
+        self.distribution_loss_weight = distribution_loss_weight
+
+    def __call__(
+        self,
+        logits: torch.Tensor,
+        targets: torch.Tensor,
+        embeddings: torch.Tensor,
+    ) -> torch.Tensor:
+        reconstruction_loss = self.reconstruction_loss(logits, targets)
+        distribution_loss = self.distribution_loss(embeddings)
+
+        return (
+            self.reconstruction_loss_weight * reconstruction_loss
+            + self.distribution_loss_weight * distribution_loss
+        )
+
+
 class SampledDirichletLoss:
     """Dirichlet loss for sampled distributions.
 
