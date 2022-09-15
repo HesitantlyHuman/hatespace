@@ -1,4 +1,5 @@
 import torch
+from torch.nn.parallel import DistributedDataParallel
 from autoclip.torch import QuantileClip
 from hatespace.datasets import prepare_dataloaders
 from hatespace.models.tokenizer import Tokenizer
@@ -36,6 +37,7 @@ print(f"Using {DEVICE}...")
 print("Loading transformer models...")
 head = ArchetypalHead(768 * 512, config["latent_dim_size"])
 model = TransformerArchetypal("roberta-base", inner_embedder=head)
+model = DistributedDataParallel(model, device_ids=[0])
 model.to(DEVICE)
 tokenizer = Tokenizer("roberta-base", 512)
 

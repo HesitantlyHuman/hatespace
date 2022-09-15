@@ -99,7 +99,6 @@ class HatespaceTrainer:
     ) -> torch.Tensor:
         input_ids = batch["data"]["input_ids"].to(self.device)
         model_predictions, embeddings = self.batch_prediction(batch=batch)
-        print(embeddings.shape)
         loss = self.loss_function(
             model_predictions,
             input_ids,
