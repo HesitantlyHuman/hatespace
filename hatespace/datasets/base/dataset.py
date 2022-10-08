@@ -52,7 +52,10 @@ class Dataset(FunctionalDataset):
     """
 
     def __init__(
-        self, root: str = None, download: bool = None, tasks: List[dict] = []
+        self,
+        root: str = None,
+        download: bool = None,
+        tasks: List[dict] = [],
     ) -> None:
         """Creates an instance of a ironmarch dataset.
 
@@ -300,11 +303,21 @@ class DatasetView(FunctionalDataset):
     def set_index(self, index: int, value: Any) -> None:
         self.dataset.set_index(self.data_indices[index], value)
 
-    def __getattr__(self, attribute_name):
-        try:
-            return super().__getattr__(attribute_name)
-        except AttributeError:
-            return self.dataset.__getattr__(attribute_name)
+    # This stuff needs to be implemented for the base dataset class as well to function
+    # correctly for pickling
+
+    # def __getstate__(self):
+    #     return {"dataset": self.dataset, "data_indices": self.data_indices}
+
+    # def __setstate__(self, state):
+    #     self.dataset = state["dataset"]
+    #     self.data_indices = state["data_indices"]
+
+    # def __getattr__(self, attribute_name):
+    #     try:
+    #         return super().__getattr__(attribute_name)
+    #     except AttributeError:
+    #         return self.dataset.__getattr__(attribute_name)
 
 
 class ConcatDatasetView(FunctionalDataset):

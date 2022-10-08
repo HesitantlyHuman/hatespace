@@ -1,9 +1,7 @@
 from typing import Optional, Tuple, Union
 import torch
 from torch.nn import Module
-from hatespace.models.base import Embedder
 from transformers import EncoderDecoderModel, AutoTokenizer
-from transformers.modeling_outputs import Seq2SeqLMOutput
 from hatespace.models.nlp.modeling_outputs import ArchetypalTransformerModelOutput
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
@@ -39,7 +37,7 @@ def shift_tokens_right(
 # TODO This guy needs a better name
 class TransformerArchetypal(EncoderDecoderModel):
     def __init__(
-        self, model_name_or_path: Union[str, Tuple[str]], inner_embedder: Embedder
+        self, model_name_or_path: Union[str, Tuple[str]], inner_embedder: Module
     ) -> None:
         if isinstance(model_name_or_path, (tuple, list)):
             encoder_type, decoder_type = model_name_or_path
@@ -184,18 +182,28 @@ class TransformerArchetypal(EncoderDecoderModel):
         )
 
 
-class ArchetypalHead(Embedder):
-    def __init__(self, input_dimensions, num_archetypes) -> None:
+class ArchetypalHead(Module):
+    def __init__(
+        self, max_token_length: int, token_dimensions: int, num_archetypes: int
+    ) -> None:
+        self.num_archetypes = num_archetypes
+        self.max_token_length = max_token_length
+        self.token_dimensions = token_dimensions
+        self.input_size = max_token_length * token_dimensions
         encoder = torch.nn.Sequential(
-            torch.nn.Linear(input_dimensions, 512),
+            torch.nn.Linear(self.input_size, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(512, num_archetypes),
+            torch.nn.Linear(512, 512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, self.num_archetypes),
             torch.nn.Softmax(dim=1),
         )
         decoder = torch.nn.Sequential(
-            torch.nn.Linear(num_archetypes, 512),
+            torch.nn.Linear(self.num_archetypes, 512),
             torch.nn.ReLU(),
-            torch.nn.Linear(512, input_dimensions),
+            torch.nn.Linear(512, 512),
+            torch.nn.ReLU(),
+            torch.nn.Linear(512, self.input_size),
             torch.nn.ReLU(),
         )
         super().__init__(encoder=encoder, decoder=decoder)
@@ -203,6 +211,10 @@ class ArchetypalHead(Embedder):
     def forward(self, x):
         input_shape = x.shape
         x = torch.flatten(x, start_dim=1)
+        x = torch.nn.functional.pad(x, (0, 393216 - x.shape[1]))
         embedding = self.encoder(x)
-        output = torch.reshape(self.decoder(embedding), input_shape)
+        output = torch.reshape(
+            self.decoder(embedding),
+            (input_shape[0], self.max_token_length, self.token_dimensions),
+        )[:, : input_shape[1], :]
         return (output, embedding)

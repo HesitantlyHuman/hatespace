@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Union, Optional
 
 import torch
 import geomloss
@@ -30,6 +30,12 @@ class HatespaceMultiCriterion:
             self.reconstruction_loss_weight * reconstruction_loss
             + self.distribution_loss_weight * distribution_loss
         )
+
+
+# TODO consider creating custom sinkhorn loss and testing speed
+# see https://dfdazac.github.io/sinkhorn.html
+# and also https://github.com/t-vi/pytorch-tvmisc/blob/master/wasserstein-distance/Pytorch_Wasserstein.ipynb
+# the second uses a custom cuda kernel, which may give significant speedups
 
 
 class SampledDirichletLoss:
@@ -92,7 +98,7 @@ class SampledDirichletLoss:
         )
         return self.sample_distance_function(points, dirichlet_sample)
 
-    def to(self, device: str) -> "SampledDirichletLoss":
+    def to(self, device: Union[str, torch.device]) -> "SampledDirichletLoss":
         """Moves the loss function to the specified computation device
 
         Args:
@@ -101,10 +107,28 @@ class SampledDirichletLoss:
         self.device = device
         return self
 
+    def cuda(
+        self, device: Optional[Union[int, torch.device]] = None
+    ) -> "SampledDirichletLoss":
+        """Moves the loss function to the specified GPU.
+
+        Args:
+            gpu (:obj:`int`): GPU to move to.
+        """
+        if device is None:
+            device = torch.cuda.current_device()
+        if isinstance(device, int):
+            device = torch.device("cuda", device)
+        self.device = device
+        return self
+
     def _get_sampler(self, num_dimensions: int) -> torch.distributions.Dirichlet:
         return torch.distributions.dirichlet.Dirichlet(
             torch.tensor([self.alpha for i in range(num_dimensions)])
         )
+
+    def __repr__(self) -> str:
+        return f"SampledDirichletLoss(alpha={self.alpha}, num_samples={self.num_samples}, sample_distance_function={self.sample_distance_function})"
 
 
 class SequenceLoss:
@@ -116,12 +140,15 @@ class SequenceLoss:
 
     def __init__(
         self,
-        ignore_index=None,
+        ignore_index: int = None,
+        reduction: str = "mean",
     ) -> None:
         if ignore_index is not None:
-            self.loss_fn = torch.nn.NLLLoss(ignore_index=ignore_index)
+            self.loss_fn = torch.nn.NLLLoss(
+                ignore_index=ignore_index, reduction=reduction
+            )
         else:
-            self.loss_fn = torch.nn.NLLLoss()
+            self.loss_fn = torch.nn.NLLLoss(reduction=reduction)
 
     def __call__(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
         """Calculates the sequence loss.

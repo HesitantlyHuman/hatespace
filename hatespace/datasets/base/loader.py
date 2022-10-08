@@ -4,6 +4,10 @@ from torch.utils.data import Dataset, DataLoader, Sampler
 from hatespace.datasets.base.utils import default_collate_without_key
 
 
+def default_collate_without_target(batch):
+    return default_collate_without_key(batch, "target")
+
+
 class DataLoader(DataLoader):
     def __init__(
         self,
@@ -28,9 +32,7 @@ class DataLoader(DataLoader):
         # instead of checking for None?
         if collate_fn is None:
             if dataset[0]["target"] is None:
-                collate_fn = lambda collate_inputs: default_collate_without_key(
-                    collate_inputs, "target"
-                )
+                collate_fn = default_collate_without_target
         super().__init__(
             dataset,
             batch_size,

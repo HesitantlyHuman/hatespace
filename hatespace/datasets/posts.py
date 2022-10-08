@@ -33,8 +33,11 @@ class IronMarch(Dataset):
         download: bool = None,
         tasks: List[dict] = [],
         side_information: Union[List[dict], dict] = None,
+        verbose: bool = True,
     ) -> None:
-        print("Loading IronMarch dataset...")
+        self.verbose = verbose
+        if self.verbose:
+            print("Loading IronMarch dataset...")
         super().__init__(root, download, tasks)
         if side_information is not None:
             self.add_side_information(side_information=side_information)
@@ -72,20 +75,22 @@ class IronMarch(Dataset):
         return data_items
 
     def format_all(self) -> None:
-        print("Formatting posts...")
-        try:
-            from tqdm import tqdm
+        if self.verbose:
+            print("Formatting posts...")
+            try:
+                from tqdm import tqdm
 
-            p_bar = tqdm(total=len(self))
+                p_bar = tqdm(total=len(self))
 
-            def format_post_with_progress(post: str) -> str:
-                p_bar.update(1)
-                return format_post(post)
+                def format_post_with_progress(post: str) -> str:
+                    p_bar.update(1)
+                    return format_post(post)
 
-            self.map(format_post_with_progress)
-        except ModuleNotFoundError:
-            print("Please install tqdm if you wish to have a progress bar.")
-            self.map(format_post)
+                self.map(format_post_with_progress)
+                return
+            except ModuleNotFoundError:
+                print("Please install tqdm if you wish to have a progress bar.")
+        self.map(format_post)
 
     def download(self, directory: str) -> None:
         raise AttributeError(

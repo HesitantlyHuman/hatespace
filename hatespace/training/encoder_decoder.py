@@ -10,6 +10,10 @@ from hatespace.training.utils import absolute_early_stopping, GeneratorSlice
 
 logging.set_verbosity_error()
 
+# TODO create a base class for this guy and the hatespace trainer to maintain feature parity
+# consider extracting the shorter validation and checkpointing behavior by modifying the
+# cc_news dataset instead of handling it in the trainer
+
 
 class EncoderDecoderTrainer:
     def __init__(
