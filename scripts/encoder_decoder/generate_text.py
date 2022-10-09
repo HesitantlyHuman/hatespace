@@ -10,8 +10,8 @@ tokenizer = Tokenizer("roberta-base", 512, return_as_list=False)
 model = EncoderDecoderModel.from_encoder_decoder_pretrained(
     "roberta-base", "roberta-base"
 )
-state_dict = torch.load("checkpoints/encoder_decoder/lower_lr_rate/best_model.pth")
-# state_dict = state_dict["model"]
+state_dict = torch.load("checkpoints/encoder_decoder/lower_lr_rate/checkpoint.pth")
+state_dict = state_dict["model"]
 state_dict = {key.split("module.")[1]: value for key, value in state_dict.items()}
 model.load_state_dict(state_dict)
 
