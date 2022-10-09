@@ -4,6 +4,8 @@ from torch.nn.parallel import DistributedDataParallel
 from autoclip.torch import QuantileClip
 from hatespace.datasets.prepare import prepare_distributed_dataloaders
 import hatespace
+import hatespace.models
+import hatespace.training
 from transformers import get_scheduler
 
 import os
@@ -102,10 +104,9 @@ def train_with_config(
 
     if process_id == 0:
         print("Loading transformer models...")
-    head = hatespace.models.ArchetypalHead(512, 768, hyperparameters["latent_dim_size"])
-    model = hatespace.models.TransformerArchetypal("roberta-base", inner_embedder=head)
     tokenizer = hatespace.models.Tokenizer("roberta-base", max_length=512)
-    model.cuda(process_id)
+    head = hatespace.models.ArchetypalHead(512, 768, hyperparameters["latent_dim_size"])
+    model = hatespace.models.TransformerArchetypal("roberta-base", head)
     model = DistributedDataParallel(
         model, device_ids=[process_id], find_unused_parameters=True
     )

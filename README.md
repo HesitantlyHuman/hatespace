@@ -27,5 +27,7 @@ from the repo root. The `ironmarch` package will then be installed in the curren
 ## Training
 To train a model, simply run the `train.py` script. (Currently still under construction. A cli will also be included later)
 
+(for better experiment names, be sure to install the `unique-names-generator` package)
+
 # Analyzing the Latent Space
 This project is currently under development, and no embeddings are available at this time. Feel free to clone the repo and run the code to generate your own.

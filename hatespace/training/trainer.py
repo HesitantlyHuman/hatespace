@@ -9,24 +9,16 @@ import transformers
 from transformers import logging
 import warnings
 import hatespace
-from hatespace.training.utils import absolute_early_stopping
+from hatespace.training.utils import (
+    generate_experiment_name,
+    split_batch_into_minibatches,
+)
 
 import torch.distributed as dist
 
 logging.set_verbosity_error()
 warnings.filterwarnings("ignore")
 
-# TODO configure to use pytorch distributed to send training history to a central node
-# central node should be the authoritative rank 0 node
-# TODO automatically determine the rank if we are training distributed
-
-# TODO set up trainer to generate random experiment names?
-
-# TODO if distributed and not the master node, then set verbose to false
-
-# TODO allow for a None value checkpoint path to disable checkpointing
-# TODO if rank != 0, then disable checkpointing, however cannot set path to None
-# TODO if rank != 0, then still load from checkpoint
 
 # TODO delete checkpoint files after training is complete
 
@@ -34,6 +26,11 @@ warnings.filterwarnings("ignore")
 # reconstruction samples every epoch
 
 # TODO should we allow for checkpoint frequency which is more frequent than each epoch?
+
+# TODO set gradients to none with .zero_grad(set_to_none=True)
+# instead of using the basic .zero_grad() method
+
+# TODO look into turning on the torch cudnn benchmarking mode
 
 
 class HatespaceTrainer:
@@ -48,14 +45,12 @@ class HatespaceTrainer:
             [torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor
         ],
         epochs: int,
+        experiment_name: str = None,
         minibatch_size: int = 2,
-        checkpoint_name: str = "checkpoint",
         verbose: bool = True,
     ) -> None:
         self.model = model
-        self.distributed = isinstance(
-            self.model, torch.nn.parallel.DistributedDataParallel
-        )
+        self.distributed = dist.is_initialized()
         self.world_size = dist.get_world_size() if self.distributed else 1
         self.rank = dist.get_rank() if self.distributed else 0
         self.scalar = torch.cuda.amp.GradScaler()
@@ -63,11 +58,7 @@ class HatespaceTrainer:
         self.optimizer = optimizer
         self.learning_rate_scheduler = learning_rate_scheduler
         self.loss_function = loss_function
-        self.verbose = (self.rank == 0 and verbose) if self.distributed else verbose
-
-        self.checkpoint_location = experiment_root
-        checkpoint_name = checkpoint_name.split(".pt")[0]
-        self.checkpoint_filename = checkpoint_name + ".pt"
+        self.verbose = verbose
 
         self.config = {
             "epochs": epochs,
@@ -75,38 +66,29 @@ class HatespaceTrainer:
         }
         self.state = {"epoch": 0, "training_history": [], "validation_history": []}
 
-        try:
-            checkpoint_filepath = os.path.join(
-                self.checkpoint_location, self.checkpoint_filename
+        if experiment_root is None:
+            self.checkpoint_directory = None
+        elif experiment_name is None:
+            while True:
+                experiment_name = generate_experiment_name()
+                self.checkpoint_directory = os.path.join(
+                    experiment_root, experiment_name
+                )
+                if not os.path.exists(self.checkpoint_directory):
+                    break
+        else:
+            self.checkpoint_directory = os.path.join(experiment_root, experiment_name)
+        if self.load_from_checkpoint(self.checkpoint_directory):
+            self._log(
+                f"Found existing training checkpoint in directory '{self.checkpoint_directory}'. Resuming training..."
             )
-            self.load_from_checkpoint(checkpoint_filepath)
-            if self.verbose:
-                print(
-                    f"Found existing training checkpoint in directory '{self.checkpoint_location}'. Resuming training..."
-                )
-        except FileNotFoundError:
-            if self.verbose:
-                print(
-                    f"Starting new training session in directory '{self.checkpoint_location}'..."
-                )
+        else:
+            self._log(
+                f"No existing training checkpoint found in directory '{self.checkpoint_directory}'. Starting new training..."
+            )
+
         self.to(next(self.model.parameters()).device)
-        _old_train_function = self.train
-
-        def train(
-            training_dataloader: torch.utils.data.DataLoader,
-            validation_dataloader: torch.utils.data.DataLoader,
-            device: str = None,
-        ):
-            return self._cleanup_if_exception(
-                _old_train_function(
-                    training_dataloader=training_dataloader,
-                    validation_dataloader=validation_dataloader,
-                    device=device,
-                    verbose=self.verbose,
-                )
-            )
-
-        self.train = train
+        self._wrap_train_with_cleanup()
 
     def to(self, device: Union[str, torch.device]) -> None:
         self.device = device
@@ -151,20 +133,9 @@ class HatespaceTrainer:
         }
         return tokenized_batch
 
-    def prepare_minibatches(
-        self, batch: Dict[str, Any], minibatch_size: int = 2
-    ) -> List[Dict[str, Any]]:
-        minibatches = []
-        for i in range(0, len(batch["data"]), minibatch_size):
-            minibatch = {
-                key: value[i : i + minibatch_size] for key, value in batch.items()
-            }
-            minibatches.append(minibatch)
-        return minibatches
-
     def training_step(self, batch: Dict[str, Any]) -> torch.Tensor:
         # Prepare data
-        minibatches = self.prepare_minibatches(
+        minibatches = split_batch_into_minibatches(
             batch=batch, minibatch_size=self.config["minibatch_size"]
         )
 
@@ -210,7 +181,9 @@ class HatespaceTrainer:
 
     def validation_step(self, batch: Dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
-            minibatches = self.prepare_minibatches(batch=batch)
+            minibatches = split_batch_into_minibatches(
+                batch=batch, minibatch_size=self.config["minibatch_size"]
+            )
             loss = torch.Tensor([0.0]).to(self.device)
             minibatch_count = torch.Tensor([len(minibatches)]).to(self.device)
             for minibatch in minibatches:
@@ -247,22 +220,20 @@ class HatespaceTrainer:
         training_dataloader: torch.utils.data.DataLoader,
         validation_dataloader: torch.utils.data.DataLoader,
         device: Union[str, torch.device] = None,
-        verbose: bool = True,
     ) -> torch.Tensor:
         if not device is None:
             self.to(device=device)
 
         epochs = self.config["epochs"]
         for epoch in range(self.state["epoch"], epochs):
-            if verbose:
-                print(f"--- Epoch {epoch}/{epochs} ---")
+            self._log(f"--- Epoch {epoch}/{epochs} ---")
             self.state["epoch"] = epoch
             self.model.train()
             training_loss = self.run_epoch(
                 data_loader=training_dataloader,
                 step_function=self.training_step,
                 name="Training",
-                verbose=verbose,
+                verbose=self.verbose,
             )
             self.state["training_history"].append(training_loss)
             self.model.eval()
@@ -270,29 +241,15 @@ class HatespaceTrainer:
                 data_loader=validation_dataloader,
                 step_function=self.validation_step,
                 name="Validation",
-                verbose=verbose,
+                verbose=self.verbose,
             )
             self.state["validation_history"].append(validation_loss)
-            self.checkpoint()
-
-            if validation_loss <= min(self.state["validation_history"]):
-                if verbose:
-                    print("Validation loss improved, saving new best model...")
-                best_model_path = os.path.join(
-                    self.checkpoint_location, "best_model.pt"
-                )
-                torch.save(self.model.state_dict(), best_model_path)
-
-            if absolute_early_stopping(self.state["validation_history"]):
-                if verbose:
-                    print(
-                        f"Validation loss has stopped converging. Halting training after epoch {epoch}... "
-                    )
-                break
+            self.checkpoint(
+                best_model=validation_loss <= min(self.state["validation_history"])
+            )
 
         # TODO fix
-        if verbose:
-            print(f"Finished training. The best model can be found at {None}.")
+        self._log(f"Finished training. The best model can be found at {None}.")
         return min(self.state["validation_history"])
 
     def state_dict(self) -> Dict[str, Any]:
@@ -312,17 +269,32 @@ class HatespaceTrainer:
         for key in ["epoch", "training_history", "validation_history"]:
             self.state[key] = state_dict["trainer"][key]
 
-    def load_from_checkpoint(self, checkpoint_filepath: str) -> None:
-        state_dict = torch.load(checkpoint_filepath)
+    def load_from_checkpoint(self, checkpoint_directory: str) -> bool:
+        checkpoint_path = os.path.join(checkpoint_directory, "checkpoint.pt")
+        if not os.path.exists(checkpoint_path):
+            return False
+        state_dict = torch.load(checkpoint_path)
         self.load_state_dict(state_dict=state_dict)
 
-    def checkpoint(self) -> None:
-        if not os.path.exists(self.checkpoint_location):
-            os.makedirs(self.checkpoint_location)
+    def checkpoint(self, best_model: bool = False) -> None:
+        if (self.checkpoint_directory is None) or (self.distributed and self.rank != 0):
+            return
+        if not os.path.exists(self.checkpoint_directory):
+            os.makedirs(self.checkpoint_directory)
         torch.save(
             self.state_dict(),
-            os.path.join(self.checkpoint_location, self.checkpoint_filename),
+            os.path.join(self.checkpoint_directory, "checkpoint.pt"),
         )
+        if best_model:
+            torch.save(
+                self.model.state_dict(),
+                os.path.join(self.checkpoint_directory, "best_model.pt"),
+            )
+
+    # TODO consider using python logging module
+    def _log(self, message: str) -> None:
+        if self.verbose and (not self.distributed or self.rank == 0):
+            print(message)
 
     def _cleanup_if_exception(
         self,
@@ -336,3 +308,21 @@ class HatespaceTrainer:
             del self.optimizer
             del self.learning_rate_scheduler
             raise e
+
+    def _wrap_train_with_cleanup(self):
+        _old_train_function = self.train
+
+        def train(
+            training_dataloader: torch.utils.data.DataLoader,
+            validation_dataloader: torch.utils.data.DataLoader,
+            device: str = None,
+        ):
+            return self._cleanup_if_exception(
+                _old_train_function(
+                    training_dataloader=training_dataloader,
+                    validation_dataloader=validation_dataloader,
+                    device=device,
+                )
+            )
+
+        self.train = train

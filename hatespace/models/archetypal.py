@@ -2,7 +2,7 @@ from typing import Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import EncoderDecoderModel, AutoTokenizer
-from hatespace.models.nlp.modeling_outputs import ArchetypalTransformerModelOutput
+from hatespace.models.outputs import ArchetypalTransformerModelOutput
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
 
 from transformers import logging
@@ -180,6 +180,10 @@ class TransformerArchetypal(EncoderDecoderModel):
         return self.generate(
             inputs=None, encoder_outputs=intermediate_encodings, *args, **kwargs
         )
+
+
+# TODO Add batch normalization
+# TODO remember to turn off bias on layers just before batch norm
 
 
 class ArchetypalHead(Module):
