@@ -92,7 +92,7 @@ class HatespaceTrainer:
 
     def calculate_loss(
         self,
-        token: Dict[str, torch.Tensor],
+        tokens: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
         raise NotImplementedError
 
