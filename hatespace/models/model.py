@@ -17,6 +17,7 @@ class TransformerArchetypal(EncoderDecoderModel):
         self,
         encoder_decoder: EncoderDecoderModel,
         inner_embedder: Module,
+        side_info_head: Module,
         tokenizer: AutoTokenizer,
     ) -> None:
         super().__init__(
@@ -108,6 +109,8 @@ class TransformerArchetypal(EncoderDecoderModel):
             encoder_outputs.last_hidden_state
         )
 
+        feature_predictions = side_info_head(embeddings)
+
         if decoder_input_ids is None:
             decoder_input_ids = shift_tokens_right(
                 input_ids, self.config.pad_token_id, self.config.decoder_start_token_id
@@ -148,6 +151,7 @@ class TransformerArchetypal(EncoderDecoderModel):
             encoder_last_hidden_state=encoder_outputs.last_hidden_state,
             encoder_hidden_states=encoder_outputs.hidden_states,
             encoder_attentions=encoder_outputs.attentions,
+            feature_predictions=feature_predictions,
         )
 
     def generate_from_sequence(
@@ -212,3 +216,20 @@ class ArchetypalHead(Module):
             (input_shape[0], self.max_token_length, self.token_dimensions),
         )[:, : input_shape[1], :]
         return (output, embedding)
+
+
+class SideInfoLinearHead(Module):
+    def __init__(
+        self, num_archetypes: int, num_binary_features: int
+    ) -> None:
+        super().__init__()
+        self.num_archetypes = num_archetypes
+        self.num_binary_features = max_token_length
+        self.feature_head = torch.nn.Sequential(
+            torch.nn.Linear(self.num_archetypes, self.num_binary_features),
+        )
+
+    def forward(self, x):
+        input_shape = x.shape
+        prediction = self.feature_head(x)
+        return prediction

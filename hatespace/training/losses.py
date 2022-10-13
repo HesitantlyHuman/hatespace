@@ -9,8 +9,11 @@ class HatespaceMultiCriterion:
         self,
         reconstruction_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
         distribution_loss: Callable[[torch.Tensor], torch.Tensor],
+        side_info_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         reconstruction_loss_weight: float = 1.0,
         distribution_loss_weight: float = 1.0,
+        side_info_loss_weight: float = 1.0,
+
     ):
         self.reconstruction_loss = reconstruction_loss
         self.distribution_loss = distribution_loss
@@ -181,4 +184,22 @@ class SequenceLoss:
 
         loss = self.loss_fn(rearranged_output, rearranged_target)
 
+        return loss
+
+
+class SideInfoLoss:
+    """Side information loss for linear head.
+
+    Calculates the binary cross entropy loss between logits and target
+    """
+
+    def __init__(
+        self,
+        pos_weight: torch.Tensor = None,
+        reduction: str = "mean",
+    ) -> None:
+        self.loss_fn = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weight, reduction=reduction)
+
+    def __call__(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        loss = self.loss_fn(logits, target)
         return loss

@@ -17,8 +17,10 @@ config = {
     "epochs": 10,
     "max_learning_rate": 1e-3,
     "latent_dim_size": 512,
+    "num_binary_features": 7,
     "reconstruction_loss_weight": 10,  # Has a value of 3.0 minimum when trained alone
     "distribution_loss_weight": 0.01,  # Has a value of 0.05 minimum when trained alone
+    "side_info_loss_weight": 1
     "dirichlet_alpha": 1.0,
     "weight_decay": 0.1,
     # "gaussian_std": 0.1,  # At or below average dist between points
@@ -42,8 +44,9 @@ train_loader, val_loader = prepare_dataloaders(
 print("Loading transformer models...")
 tokenizer = Tokenizer("roberta-base", 512)
 head = ArchetypalHead(512, 768, config["latent_dim_size"])
+side_info_head = SideInfoLinearHead(config["latent_dim_size"], config["num_binary_features"])
 model = TransformerArchetypal.from_pretrained(
-    "roberta-base", inner_embedder=head, tokenizer=tokenizer
+    "roberta-base", inner_embedder=head, side_info_head=side_info_head, tokenizer=tokenizer
 )
 encoder_decoder_state_dict = torch.load(
     "checkpoints/encoder_decoder/lower_lr_rate/best_model.pth"
@@ -65,11 +68,16 @@ lr_scheduler = get_scheduler(
 
 distribution_loss_fn = SampledDirichletLoss(alpha=config["dirichlet_alpha"]).to(DEVICE)
 reconstruction_loss_fn = SequenceLoss(ignore_index=tokenizer.pad_token_id)
+
+# TODO: Get weights of positive samples from dataset
+side_info_loss_fn = SideInfoLoss()
 combined_loss_fn = HatespaceMultiCriterion(
     reconstruction_loss=reconstruction_loss_fn,
     reconstruction_loss_weight=config["reconstruction_loss_weight"],
     distribution_loss=distribution_loss_fn,
     distribution_loss_weight=config["distribution_loss_weight"],
+    side_info_loss=side_info_loss_fn,
+    side_info_loss_weight=config["side_info_loss_weight"]
 )
 
 trainer = ArchetypalTrainer(
