@@ -19,6 +19,8 @@ import torch.distributed as dist
 logging.set_verbosity_error()
 warnings.filterwarnings("ignore")
 
+torch.backends.cudnn.benchmark = True
+
 
 # TODO delete checkpoint files after training is complete
 
@@ -27,17 +29,12 @@ warnings.filterwarnings("ignore")
 
 # TODO should we allow for checkpoint frequency which is more frequent than each epoch?
 
-# TODO set gradients to none with .zero_grad(set_to_none=True)
-# instead of using the basic .zero_grad() method
-
-# TODO look into turning on the torch cudnn benchmarking mode
-
 
 class HatespaceTrainer:
     def __init__(
         self,
         experiment_root: str,
-        model: hatespace.models.archetypal.TransformerArchetypal,
+        model: hatespace.models.TransformerArchetypal,
         tokenizer: transformers.PreTrainedTokenizer,
         optimizer: torch.optim.Optimizer,
         learning_rate_scheduler: torch.optim.lr_scheduler._LRScheduler,
@@ -90,41 +87,19 @@ class HatespaceTrainer:
         self.to(next(self.model.parameters()).device)
         self._wrap_train_with_cleanup()
 
-    def to(self, device: Union[str, torch.device]) -> None:
-        self.device = device
-        self.model.to(device=device)
-
-    def batch_prediction(
-        self, tokens: Dict[str, torch.Tensor]
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        input_ids = tokens["input_ids"]
-        attention_mask = tokens["attention_mask"]
-        model_outputs = self.model(
-            input_ids=input_ids,
-            decoder_input_ids=input_ids,
-            attention_mask=attention_mask,
-            decoder_attention_mask=attention_mask,
-        )
-        predicted_sequence_logits, embeddings = (
-            model_outputs.logits,
-            model_outputs.embeddings,
-        )
-        del model_outputs
-
-        return predicted_sequence_logits, embeddings
+    def batch_prediction(self, tokens: Dict[str, torch.Tensor]) -> Any:
+        raise NotImplementedError
 
     def calculate_loss(
         self,
-        batch: Dict[str, torch.Tensor],
+        token: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
-        with autocast(device_type=self.device.type):
-            model_predictions, embeddings = self.batch_prediction(tokens=batch)
-            loss = self.loss_function(
-                model_predictions,
-                batch["input_ids"],
-                embeddings,
-            )
-        return loss
+        raise NotImplementedError
+
+    def to(self, device: Union[str, torch.device]) -> None:
+        device = torch.device(device)
+        self.device = device
+        self.model.to(device=device)
 
     def tokenize_batch(self, batch: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         tokenized_batch = self.tokenizer(batch["data"])
@@ -144,11 +119,12 @@ class HatespaceTrainer:
         minibatch_count = torch.Tensor([len(minibatches)]).to(self.device)
 
         def training_ministep(minibatch: Dict[str, Any]) -> torch.Tensor:
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad(set_to_none=True)
             minibatch = self.tokenize_batch(minibatch)
-            minibatch_loss = self.calculate_loss(
-                batch=minibatch
-            )  # TODO Do we need to normalize?
+            with autocast(device_type=self.device.type):
+                minibatch_loss = self.calculate_loss(
+                    tokens=minibatch
+                )  # TODO Do we need to normalize?
             self.scalar.scale(minibatch_loss).backward()
             return minibatch_loss.detach()
 
@@ -188,7 +164,8 @@ class HatespaceTrainer:
             minibatch_count = torch.Tensor([len(minibatches)]).to(self.device)
             for minibatch in minibatches:
                 minibatch = self.tokenize_batch(minibatch)
-                minibatch_loss = self.calculate_loss(batch=minibatch)
+                with autocast(device_type=self.device.type):
+                    minibatch_loss = self.calculate_loss(tokens=minibatch)
                 loss += minibatch_loss.detach()
             loss /= minibatch_count
 

@@ -6,12 +6,14 @@ from hatespace.training.losses import SequenceLoss
 from hatespace.training import EncoderDecoderTrainer
 from transformers import EncoderDecoderModel, get_scheduler
 
+MAX_SINGLE_BATCH_SIZE = 8
+
 # TODO: Add a cli, so that running the code is even easier
 config = {
     "training_steps": 1_000_000,
     "validation_steps": 100_000,
     "max_learning_rate": 1e-4,
-    "batch_size": 8,
+    "batch_size": 64,
     "weight_decay": 0.075,
 }
 
@@ -45,27 +47,25 @@ lr_scheduler = get_scheduler(
     num_warmup_steps=config["training_steps"] * 0.3,
     num_training_steps=config["training_steps"],
 )
-
 loss_fn = SequenceLoss(ignore_index=tokenizer.pad_token_id)
-
-trainer = EncoderDecoderTrainer(
-    "checkpoints/encoder_decoder/test",
-    model=model,
-    optimizer=optimizer,
-    learning_rate_scheduler=lr_scheduler,
-    loss_function=loss_fn,
-    training_steps=config["training_steps"],
-    validation_steps=config["validation_steps"],
-)
-
 print("Loading dataset...")
 train_loader, val_loader = prepare_dataloaders(
     "cc_news",
-    tokenizer=tokenizer,
     training_batch_size=config["batch_size"],
     validation_batch_size=config["batch_size"],
+    num_workers=12,
 )
 
+trainer = EncoderDecoderTrainer(
+    "checkpoints/encoder_decoder",
+    model=model,
+    optimizer=optimizer,
+    tokenizer=tokenizer,
+    learning_rate_scheduler=lr_scheduler,
+    loss_function=loss_fn,
+    epochs=10,
+    minibatch_size=MAX_SINGLE_BATCH_SIZE,
+)
 trainer.train(
     training_dataloader=train_loader,
     validation_dataloader=val_loader,

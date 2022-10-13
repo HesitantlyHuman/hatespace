@@ -29,5 +29,7 @@ To train a model, simply run the `train.py` script. (Currently still under const
 
 (for better experiment names, be sure to install the `unique-names-generator` package)
 
+(make some remarks about training with docker container and socket failures)
+
 # Analyzing the Latent Space
 This project is currently under development, and no embeddings are available at this time. Feel free to clone the repo and run the code to generate your own.

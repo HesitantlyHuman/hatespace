@@ -6,6 +6,8 @@ from transformers import logging
 
 logging.set_verbosity_error()
 
+# TODO this functionality should be combined with the train and test functions
+
 tokenizer = Tokenizer("roberta-base", 512, return_as_list=False)
 model = EncoderDecoderModel.from_encoder_decoder_pretrained(
     "roberta-base", "roberta-base"

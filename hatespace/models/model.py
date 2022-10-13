@@ -1,77 +1,24 @@
-from dataclasses import dataclass
-from typing import Optional, Tuple
-
-import torch
-from transformers.modeling_utils import ModelOutput
-
 from typing import Optional, Tuple, Union
 import torch
 from torch.nn import Module
 from transformers import EncoderDecoderModel, AutoTokenizer
 from hatespace.models.outputs import ArchetypalTransformerModelOutput
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions
-from itertools import chain
+from hatespace.models.utils import shift_tokens_right
 
 from transformers import logging
 
 logging.set_verbosity_error()
 
-
-def shift_tokens_right(
-    input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int
-):
-    """
-    Shift input ids one token to the right.
-    """
-    shifted_input_ids = input_ids.new_zeros(input_ids.shape)
-    shifted_input_ids[:, 1:] = input_ids[:, :-1].clone()
-    if decoder_start_token_id is None:
-        raise ValueError(
-            "Make sure to set the decoder_start_token_id attribute of the model's configuration."
-        )
-    shifted_input_ids[:, 0] = decoder_start_token_id
-
-    if pad_token_id is None:
-        raise ValueError(
-            "Make sure to set the pad_token_id attribute of the model's configuration."
-        )
-    # replace possible -100 values in labels by `pad_token_id`
-    shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
-
-    return shifted_input_ids
-
-
-# encoder_config = RobertaConfig.from_pretrained("roberta-base")
-# encoder = RobertaModel(config=encoder_config)
-
-# decoder_config = RobertaConfig(
-#     vocab_size=encoder_config.vocab_size,
-#     max_position_embeddings=encoder_config.max_position_embeddings,  # this should be some large value
-#     num_attention_heads=8,
-#     num_hidden_layers=8,
-#     hidden_size=512,
-#     add_cross_attention=True,
-#     type_vocab_size=1,
-#     is_decoder=True,
-# )  # Very Important
-
-# decoder = RobertaForCausalLM(config=decoder_config)
-
 # TODO Make this easy to switch between inner embedder and no inner_embedder (or other inner_embedders for that matter)
 # TODO This guy needs a better name
 class TransformerArchetypal(EncoderDecoderModel):
     def __init__(
-        self, model_name_or_path: Union[str, Tuple[str]], inner_embedder: Module
+        self,
+        encoder_decoder: EncoderDecoderModel,
+        inner_embedder: Module,
+        tokenizer: AutoTokenizer,
     ) -> None:
-        if isinstance(model_name_or_path, (tuple, list)):
-            encoder_type, decoder_type = model_name_or_path
-        else:
-            encoder_type = model_name_or_path
-            decoder_type = model_name_or_path
-        encoder_decoder = EncoderDecoderModel.from_encoder_decoder_pretrained(
-            encoder_type, decoder_type
-        )
-
         super().__init__(
             config=encoder_decoder.config,
             encoder=encoder_decoder.encoder,
@@ -85,12 +32,31 @@ class TransformerArchetypal(EncoderDecoderModel):
         self.inner_embedder = inner_embedder
         self.vocab_size = self.decoder.config.vocab_size
 
-        # TODO Find a better solution to this. Possibly pass in the tokenizer
-        t = AutoTokenizer.from_pretrained(decoder_type)
-        self.config.decoder_start_token_id = t.cls_token_id
-        self.config.pad_token_id = t.pad_token_id
+        self.config.decoder_start_token_id = tokenizer.cls_token_id
+        self.config.pad_token_id = tokenizer.pad_token_id
         self.config.vocab_size = self.config.decoder.vocab_size
-        self.config.bos_token_id = t.cls_token_id
+        self.config.bos_token_id = tokenizer.cls_token_id
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        model_name_or_path: Union[str, Tuple[str, str]],
+        inner_embedder: Module = None,
+        tokenizer: AutoTokenizer = None,
+    ) -> "TransformerArchetypal":
+        if isinstance(model_name_or_path, (tuple, list)):
+            encoder_type, decoder_type = model_name_or_path
+        else:
+            encoder_type = model_name_or_path
+            decoder_type = model_name_or_path
+        encoder_decoder = EncoderDecoderModel.from_encoder_decoder_pretrained(
+            encoder_type, decoder_type
+        )
+        if inner_embedder is None:
+            inner_embedder = ArchetypalHead(512, 769, 12)
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(encoder_type)
+        return cls(encoder_decoder, inner_embedder, tokenizer)
 
     def forward(
         self,
@@ -214,11 +180,12 @@ class ArchetypalHead(Module):
     def __init__(
         self, max_token_length: int, token_dimensions: int, num_archetypes: int
     ) -> None:
+        super().__init__()
         self.num_archetypes = num_archetypes
         self.max_token_length = max_token_length
         self.token_dimensions = token_dimensions
         self.input_size = max_token_length * token_dimensions
-        encoder = torch.nn.Sequential(
+        self.encoder = torch.nn.Sequential(
             torch.nn.Linear(self.input_size, 512),
             torch.nn.ReLU(),
             torch.nn.Linear(512, 512),
@@ -226,7 +193,7 @@ class ArchetypalHead(Module):
             torch.nn.Linear(512, self.num_archetypes),
             torch.nn.Softmax(dim=1),
         )
-        decoder = torch.nn.Sequential(
+        self.decoder = torch.nn.Sequential(
             torch.nn.Linear(self.num_archetypes, 512),
             torch.nn.ReLU(),
             torch.nn.Linear(512, 512),
@@ -234,7 +201,6 @@ class ArchetypalHead(Module):
             torch.nn.Linear(512, self.input_size),
             torch.nn.ReLU(),
         )
-        super().__init__(encoder=encoder, decoder=decoder)
 
     def forward(self, x):
         input_shape = x.shape

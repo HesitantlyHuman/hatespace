@@ -6,6 +6,12 @@ import uuid
 STOPPING_EPOCHS = 50
 
 
+def set_global_seed(seed: int) -> None:
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+
+
 def generate_experiment_name() -> str:
     try:
         from unique_names_generator import get_random_name

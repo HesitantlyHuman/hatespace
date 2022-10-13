@@ -11,10 +11,10 @@ csv.field_size_limit(sys.maxsize)
 class IronMarch(Dataset):
     """Dataset of forum posts originating from the far-right internet forum IronMarch.
 
-    TRIGGER WARNING:
+    TRIGGER WARNING:\n
     This dataset contains html snippets of both public and private conversations between
     users of the facist IronMarch forum. The content taken as a whole tends to be racist,
-    sexist and almost every other flavor of vile. None of the content has been censored.
+    sexist and hateful. None of the content has been censored.
 
     The text within the dataset comes from two main sources. Private messages between
     users, and posts made on the public forum. To check if a given message is was a
@@ -94,7 +94,7 @@ class IronMarch(Dataset):
 
     def download(self, directory: str) -> None:
         raise AttributeError(
-            "Cannot download the IronMarch dataset!\nIf you do not have the data, you may request it by contacting tannersims@generallyintelligent.me."
+            "Cannot download the IronMarch dataset!\nIf you do not have the data, you may request it by contacting tannersims@hesitantlyhuman.com"
         )
 
     def add_side_information(self, side_information: Union[List[dict], dict]) -> None:
