@@ -9,7 +9,7 @@ class HatespaceMultiCriterion:
         self,
         reconstruction_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
         distribution_loss: Callable[[torch.Tensor], torch.Tensor],
-        side_info_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+        side_info_loss: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
         reconstruction_loss_weight: float = 1.0,
         distribution_loss_weight: float = 1.0,
         side_info_loss_weight: float = 1.0,
@@ -17,8 +17,10 @@ class HatespaceMultiCriterion:
     ):
         self.reconstruction_loss = reconstruction_loss
         self.distribution_loss = distribution_loss
+        self.side_info_loss = side_info_loss
         self.reconstruction_loss_weight = reconstruction_loss_weight
         self.distribution_loss_weight = distribution_loss_weight
+        self.side_info_loss_weight = side_info_loss_weight
 
     def __call__(
         self,
