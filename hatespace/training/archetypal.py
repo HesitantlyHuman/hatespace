@@ -28,6 +28,7 @@ class ArchetypalTrainer(HatespaceTrainer):
     def calculate_loss(
         self,
         tokens: Dict[str, torch.Tensor],
+        features: torch.Tensor # TODO: determine the actual type. torch.Tensor is placeholder.
     ) -> torch.Tensor:
         model_predictions, embeddings, feature_predictions = self.batch_prediction(tokens=tokens)
         loss = self.loss_function(
@@ -35,5 +36,6 @@ class ArchetypalTrainer(HatespaceTrainer):
             tokens["input_ids"],
             embeddings,
             feature_predictions,
+            features
         )
         return loss

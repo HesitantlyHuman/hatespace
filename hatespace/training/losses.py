@@ -27,13 +27,17 @@ class HatespaceMultiCriterion:
         logits: torch.Tensor,
         targets: torch.Tensor,
         embeddings: torch.Tensor,
+        side_info_logits: torch.Tensor,
+        side_info_targets: torch.Tensor,
     ) -> torch.Tensor:
         reconstruction_loss = self.reconstruction_loss(logits, targets)
         distribution_loss = self.distribution_loss(embeddings)
+        side_info_loss = self.side_info_loss(side_info_logits, side_info_targets)
 
         return (
             self.reconstruction_loss_weight * reconstruction_loss
             + self.distribution_loss_weight * distribution_loss
+            + self.side_info_loss_weight * side_info_loss
         )
 
 
