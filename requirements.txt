@@ -41,3 +41,4 @@ wheel==0.37.1
 xxhash==3.0.0
 yarl==1.8.1
 geomloss==0.2.5
+unique-names-generator==1.0.2

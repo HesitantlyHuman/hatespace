@@ -11,11 +11,13 @@ class HatespaceMultiCriterion:
         distribution_loss: Callable[[torch.Tensor], torch.Tensor],
         reconstruction_loss_weight: float = 1.0,
         distribution_loss_weight: float = 1.0,
+        return_dict: bool = False,
     ):
         self.reconstruction_loss = reconstruction_loss
         self.distribution_loss = distribution_loss
         self.reconstruction_loss_weight = reconstruction_loss_weight
         self.distribution_loss_weight = distribution_loss_weight
+        self.return_dict = return_dict
 
     def __call__(
         self,
@@ -26,10 +28,19 @@ class HatespaceMultiCriterion:
         reconstruction_loss = self.reconstruction_loss(logits, targets)
         distribution_loss = self.distribution_loss(embeddings)
 
-        return (
+        loss = (
             self.reconstruction_loss_weight * reconstruction_loss
             + self.distribution_loss_weight * distribution_loss
         )
+
+        if self.return_dict:
+            return {
+                "loss": loss,
+                "reconstruction_loss": reconstruction_loss.detach(),
+                "distribution_loss": distribution_loss.detach(),
+            }
+        else:
+            return loss
 
 
 # TODO consider creating custom sinkhorn loss and testing speed
@@ -182,3 +193,6 @@ class SequenceLoss:
         loss = self.loss_fn(rearranged_output, rearranged_target)
 
         return loss
+
+    def __repr__(self) -> str:
+        return f"SequenceLoss(ignore_index={self.loss_fn.ignore_index}, reduction={self.loss_fn.reduction})"

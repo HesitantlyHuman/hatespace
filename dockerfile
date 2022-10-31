@@ -14,4 +14,6 @@ RUN python3 -m pip install $(cat requirements.txt | grep numpy)
 RUN python3 -m pip install -r requirements.txt
 RUN python3 -m pip install .
 
+RUN python3 /repo/scripts/docker/load_transformers.py
+
 ENTRYPOINT [ "/bin/bash" ]

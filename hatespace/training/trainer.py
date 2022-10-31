@@ -6,6 +6,7 @@ from torch.amp import autocast
 import numpy as np
 from tqdm import tqdm
 import transformers
+import json
 from transformers import logging
 import warnings
 import hatespace
@@ -21,6 +22,7 @@ warnings.filterwarnings("ignore")
 
 torch.backends.cudnn.benchmark = True
 
+# TODO adapt trainer to accept both tensors and dicts as loss function outputs
 
 # TODO delete checkpoint files after training is complete
 
@@ -29,12 +31,18 @@ torch.backends.cudnn.benchmark = True
 
 # TODO should we allow for checkpoint frequency which is more frequent than each epoch?
 
+# TODO should we load configurations? They don't really effect how we train, but maybe they
+# can be a way of verifying that someone intends to resume a previous training run?
+# Either way, the way we are handling configurations should be cleaned up a bit.
+# Saving the training history in a place where it's easy to access would be nice as well.
+# The trainer might not be the right place to solve this, since the random seed is important, for example.
+
 
 class HatespaceTrainer:
     def __init__(
         self,
         experiment_root: str,
-        model: hatespace.models.TransformerArchetypal,
+        model: torch.nn.Module,
         tokenizer: transformers.PreTrainedTokenizer,
         optimizer: torch.optim.Optimizer,
         learning_rate_scheduler: torch.optim.lr_scheduler._LRScheduler,
@@ -45,6 +53,7 @@ class HatespaceTrainer:
         experiment_name: str = None,
         minibatch_size: int = 2,
         verbose: bool = True,
+        configuration: Dict[str, Any] = None,
     ) -> None:
         self.model = model
         self.distributed = dist.is_initialized()
@@ -60,7 +69,13 @@ class HatespaceTrainer:
         self.config = {
             "epochs": epochs,
             "minibatch_size": minibatch_size,
+            "experiment_name": experiment_name,
+            "world_size": self.world_size,
+            "rank": self.rank,
+            "verbose": verbose,
         }
+        if configuration is not None:
+            self.config.update(configuration)
         self.state = {"epoch": 0, "training_history": [], "validation_history": []}
 
         if experiment_root is None:
@@ -71,6 +86,7 @@ class HatespaceTrainer:
                 self.checkpoint_directory = os.path.join(
                     experiment_root, experiment_name
                 )
+                self.config["experiment_name"] = experiment_name
                 if not os.path.exists(self.checkpoint_directory):
                     break
         else:
@@ -83,6 +99,7 @@ class HatespaceTrainer:
             self._log(
                 f"No existing training checkpoint found in directory '{self.checkpoint_directory}'. Starting new training..."
             )
+            self.save_configuration()
 
         self.to(next(self.model.parameters()).device)
         self._wrap_train_with_cleanup()
@@ -169,6 +186,13 @@ class HatespaceTrainer:
                 loss += minibatch_loss.detach()
             loss /= minibatch_count
 
+            if self.distributed:
+                loss_collection_work = dist.all_reduce(
+                    loss, op=dist.ReduceOp.SUM, async_op=True
+                )
+                loss_collection_work.wait()
+                loss /= self.world_size
+
         return loss.item()
 
     def run_epoch(
@@ -179,14 +203,14 @@ class HatespaceTrainer:
         verbose: bool = True,
     ) -> torch.Tensor:
         batch_losses = []
-        if verbose:
+        if verbose and self.rank == 0:
             data_loader = tqdm(data_loader, desc=name)
-        for _, batch in enumerate(data_loader):
+        for batch in data_loader:
             loss = step_function(batch)
 
             # Update metric tracking
             batch_losses.append(loss)
-            if verbose:
+            if verbose and self.rank == 0:
                 data_loader.set_postfix(
                     {"Avg Loss": "{:4.3f}".format(np.mean(batch_losses[-300:]))}
                 )
@@ -225,8 +249,9 @@ class HatespaceTrainer:
                 best_model=validation_loss <= min(self.state["validation_history"])
             )
 
-        # TODO fix
-        self._log(f"Finished training. The best model can be found at {None}.")
+        self._log(
+            f"Finished training. The best model can be found at {self.checkpoint_directory}."
+        )
         return min(self.state["validation_history"])
 
     def state_dict(self) -> Dict[str, Any]:
@@ -239,10 +264,18 @@ class HatespaceTrainer:
         }
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        self.model.load_state_dict(state_dict=state_dict["model"])
+        """Load the state of the trainer from a state dictionary.
+
+        Warning: Because of memory problems, this function will modify the provided
+        state dictionary, deleting the entries."""
         self.optimizer.load_state_dict(state_dict=state_dict["optimizer"])
+        del state_dict["optimizer"]
         self.learning_rate_scheduler.load_state_dict(state_dict=state_dict["scheduler"])
+        del state_dict["scheduler"]
         self.scalar.load_state_dict(state_dict=state_dict["scalar"])
+        del state_dict["scalar"]
+        self.model.load_state_dict(state_dict=state_dict["model"])
+        del state_dict["model"]
         for key in ["epoch", "training_history", "validation_history"]:
             self.state[key] = state_dict["trainer"][key]
 
@@ -262,11 +295,39 @@ class HatespaceTrainer:
             self.state_dict(),
             os.path.join(self.checkpoint_directory, "checkpoint.pt"),
         )
+        self.save_training_history()
         if best_model:
             torch.save(
                 self.model.state_dict(),
                 os.path.join(self.checkpoint_directory, "best_model.pt"),
             )
+
+    def save_training_history(self) -> None:
+        if (self.checkpoint_directory is None) or (self.distributed and self.rank != 0):
+            return
+        if not os.path.exists(self.checkpoint_directory):
+            os.makedirs(self.checkpoint_directory)
+        with open(
+            os.path.join(self.checkpoint_directory, "training_history.json"), "w"
+        ) as f:
+            json.dump(
+                {
+                    "training_history": self.state["training_history"],
+                    "validation_history": self.state["validation_history"],
+                },
+                f,
+                indent=4,
+            )
+
+    def save_configuration(self) -> None:
+        if (self.checkpoint_directory is None) or (self.distributed and self.rank != 0):
+            return
+        if not os.path.exists(self.checkpoint_directory):
+            os.makedirs(self.checkpoint_directory)
+        with open(
+            os.path.join(self.checkpoint_directory, "configuration.json"), "w"
+        ) as f:
+            json.dump(self.config, f, indent=4)
 
     # TODO consider using python logging module
     def _log(self, message: str) -> None:
@@ -295,7 +356,7 @@ class HatespaceTrainer:
             device: str = None,
         ):
             return self._cleanup_if_exception(
-                _old_train_function(
+                lambda: _old_train_function(
                     training_dataloader=training_dataloader,
                     validation_dataloader=validation_dataloader,
                     device=device,

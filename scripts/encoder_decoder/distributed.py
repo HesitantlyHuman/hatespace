@@ -21,14 +21,12 @@ default_config = {
     "weight_decay": 0.1,
 }
 
-# TODO do a final dry run with a slice of the dataset
-
 # Figure out how we're going to save configurations
 # should we use WandB?
 
-# TODO add parameter to select an experiment by name
-
 # TODO allow for selecting specific gpus to use
+
+# TODO add host and port options
 
 
 def launch():
@@ -55,6 +53,25 @@ def launch():
         help="number of gpus per node to train with",
     )
     parser.add_argument(
+        "--directory",
+        default="checkpoints/encoder_decoder",
+        type=str,
+        help="directory to save checkpoints to",
+    )
+    parser.add_argument(
+        "--experiment_name",
+        default=None,
+        type=str,
+        help="name of the experiment",
+    )
+    parser.add_argument(
+        "--dataset",
+        default="cc_news",
+        type=str,
+        help="dataset to train on",
+        choices=["iron_march", "cc_news"],
+    )
+    parser.add_argument(
         "--epochs",
         default=10,
         type=int,
@@ -62,7 +79,7 @@ def launch():
     )
     parser.add_argument(
         "--batch_size",
-        default=16,
+        default=64,
         type=int,
         help="batch size to train with",
     )
@@ -71,6 +88,24 @@ def launch():
         default=1,
         type=int,
         help="number of workers to use per GPU for data loading",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        default=1e-3,
+        type=float,
+        help="the maximum learning rate to hit during the one cycle policy",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        default=0.1,
+        type=float,
+        help="weight decay to use for the optimizer",
+    )
+    parser.add_argument(
+        "--seed",
+        default=42,
+        type=int,
+        help="seed for any random processes",
     )
     args = parser.parse_args()
     args.per_gpu_batch_size = args.batch_size // args.gpus
@@ -81,15 +116,16 @@ def launch():
     torch.multiprocessing.spawn(
         train_with_config,
         nprocs=args.gpus,
-        args=(args, default_config),
+        args=(args,),
     )
 
     # TODO add a zipping and uploading step here?
-    # maybe pass through the experiment name, so that the zip utility hplastics and estrogenas access as well
+    # maybe pass through the experiment name, so that the zip utility has access as well
 
 
 def train_with_config(
-    process_id: int, training_config: argparse.Namespace, hyperparameters: dict
+    process_id: int,
+    training_config: argparse.Namespace,
 ):
     rank = training_config.node_rank * training_config.gpus + process_id
     print(f"Initalizing node process group {process_id} with rank {rank}...")
@@ -100,7 +136,7 @@ def train_with_config(
         rank=rank,
     )
     torch.cuda.set_device(process_id)
-    set_global_seed(42)  # TODO allow command line to set this
+    set_global_seed(training_config.seed)
 
     if process_id == 0:
         print("Loading transformer models...")
@@ -113,9 +149,8 @@ def train_with_config(
         model, device_ids=[process_id], find_unused_parameters=True
     )
 
-    # TODO select dataset based on command line argument
     train_loader, val_loader = prepare_dataloaders(
-        "cc_news",
+        training_config.dataset,
         training_batch_size=training_config.per_gpu_batch_size,
         validation_batch_size=training_config.per_gpu_batch_size,
         num_workers=training_config.num_workers,
@@ -126,13 +161,13 @@ def train_with_config(
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=hyperparameters["max_learning_rate"],
-        weight_decay=hyperparameters["weight_decay"],
+        lr=training_config.learning_rate,
+        weight_decay=training_config.weight_decay,
     )
     optimizer = QuantileClip.as_optimizer(
         optimizer, quantile=0.8, history_length=1000, global_threshold=False
     )
-    num_training_steps = hyperparameters["epochs"] * len(train_loader)
+    num_training_steps = training_config.epochs * len(train_loader)
     lr_scheduler = get_scheduler(
         name="cosine",
         optimizer=optimizer,
@@ -141,20 +176,18 @@ def train_with_config(
     )
     sequence_loss = hatespace.training.SequenceLoss(ignore_index=tokenizer.pad_token_id)
 
-    # TODO: Configure the checkpointing to work with a remote server
-    # ^ we won't worry about this, because we can just zip the experiment folder
-    # afterwards and upload it to the server
-    # TODO: Ensure that only the master process saves checkpoints
-    # TODO: Fix loading from checkpoint
+    # TODO: Fix loading from checkpoint RAM error
     trainer = hatespace.training.EncoderDecoderTrainer(
-        "checkpoints/archetypal",
+        training_config.directory,
         model=model,
         optimizer=optimizer,
         tokenizer=tokenizer,
         learning_rate_scheduler=lr_scheduler,
         loss_function=sequence_loss,
-        epochs=hyperparameters["epochs"],
+        epochs=training_config.epochs,
         minibatch_size=MAX_SINGLE_BATCH_SIZE,
+        configuration=vars(training_config),
+        experiment_name=training_config.experiment_name,
     )
     best_loss = trainer.train(
         training_dataloader=train_loader,
