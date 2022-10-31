@@ -111,7 +111,7 @@ def launch():
     )
     parser.add_argument(
         "--distribution_loss_weight",
-        default=1e5,
+        default=1e2,
         type=float,
         help="weight of the distribution loss in the multi criterion loss",
     )
