@@ -42,6 +42,13 @@ def launch():
         help="number of gpus per node to train with",
     )
     parser.add_argument(
+        "-p",
+        "--port",
+        default="12355",
+        type=str,
+        help="port to connect to training cluster",
+    )
+    parser.add_argument(
         "--directory",
         default="checkpoints/archetypal",
         type=str,
@@ -124,7 +131,7 @@ def launch():
     args.per_gpu_batch_size = args.batch_size // args.gpus
     args.world_size = args.gpus * args.nodes
     os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    os.environ["MASTER_PORT"] = args.port
     torch.multiprocessing.set_start_method("fork")
     torch.multiprocessing.spawn(
         train_with_config_and_cleanup,
