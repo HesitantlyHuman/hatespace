@@ -27,8 +27,7 @@ class TransformerArchetypal(EncoderDecoderModel):
         del encoder_decoder
 
         self.train()
-        # self.gradient_checkpointing_disable()
-        self.gradient_checkpointing_enable()
+        self.decoder.gradient_checkpointing_enable()
 
         self.inner_embedder = inner_embedder
         self.vocab_size = self.decoder.config.vocab_size

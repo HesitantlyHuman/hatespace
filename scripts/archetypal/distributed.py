@@ -173,9 +173,10 @@ def train_with_config(
     # }
     # model.load_state_dict(encoder_decoder_state_dict, strict=False)
     model.cuda(process_id)
-    model = DistributedDataParallel(
-        model, device_ids=[process_id], find_unused_parameters=True
-    )
+    if not (training_config.nodes == 1 and training_config.gpus == 1):
+        model = DistributedDataParallel(
+            model, device_ids=[process_id], find_unused_parameters=True
+        )
 
     train_loader, val_loader = prepare_dataloaders(
         training_config.dataset,

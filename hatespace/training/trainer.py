@@ -56,7 +56,7 @@ class HatespaceTrainer:
         configuration: Dict[str, Any] = None,
     ) -> None:
         self.model = model
-        self.distributed = dist.is_initialized()
+        self.distributed = isinstance(model, torch.nn.parallel.DistributedDataParallel)
         self.world_size = dist.get_world_size() if self.distributed else 1
         self.rank = dist.get_rank() if self.distributed else 0
         self.scalar = torch.cuda.amp.GradScaler()
