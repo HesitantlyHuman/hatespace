@@ -8,6 +8,7 @@ from typing import Any, Callable, Sequence, Tuple, List, Union
 import os
 import random
 from torch.utils.data import Dataset
+import torch
 
 import hatespace.datasets.base.dataset as ironmarch_datasets
 from hatespace.datasets.base.utils import get_nested_data_types, batch_enumerate
@@ -16,6 +17,8 @@ from hatespace.datasets.base.display_utils import (
     format_examples_tabular,
     format_statistics,
 )
+
+_seed = 42
 
 
 class FunctionalDataset(Dataset):
@@ -111,6 +114,8 @@ class FunctionalDataset(Dataset):
         """
         dataset_length = len(self)
         indices = list(range(dataset_length))
+        if seed is None:
+            seed = _seed
         random.Random(seed).shuffle(indices)
         n_test = int(dataset_length * validation_proportion)
         return (

@@ -2,6 +2,7 @@ from typing import Iterable, List, Union, Generator, Any, Dict
 import torch
 import numpy as np
 import uuid
+import hatespace
 
 STOPPING_EPOCHS = 50
 
@@ -10,6 +11,7 @@ def set_global_seed(seed: int) -> None:
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
+    hatespace.datasets.base.functional._seed = seed
 
 
 def generate_experiment_name() -> str:

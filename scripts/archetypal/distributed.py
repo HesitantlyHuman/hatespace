@@ -87,7 +87,7 @@ def launch():
     )
     parser.add_argument(
         "--num_workers",
-        default=4,
+        default=1,
         type=int,
         help="number of workers to use per GPU for data loading",
     )
