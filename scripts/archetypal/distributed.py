@@ -1,5 +1,6 @@
 import argparse
 import torch
+import json
 from torch.nn.parallel import DistributedDataParallel
 from autoclip.torch import QuantileClip
 from hatespace.datasets.prepare import prepare_dataloaders
@@ -93,7 +94,7 @@ def launch():
     )
     parser.add_argument(
         "--learning_rate",
-        default=1e-3,
+        default=1e-5,
         type=float,
         help="the maximum learning rate to hit during the one cycle policy",
     )
@@ -132,6 +133,7 @@ def launch():
     args.world_size = args.gpus * args.nodes
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = args.port
+    try_load_experiment_configuration(args)
     torch.multiprocessing.set_start_method("fork")
     torch.multiprocessing.spawn(
         train_with_config_and_cleanup,
@@ -141,6 +143,22 @@ def launch():
 
     # TODO add a zipping and uploading step here?
     # maybe pass through the experiment name, so that the zip utility has access as well
+
+
+def try_load_experiment_configuration(args: argparse.Namespace):
+    if args.experiment_name is None:
+        return
+    checkpoint_location = os.path.join(args.directory, args.experiment_name)
+    configuration_path = os.path.join(checkpoint_location, "configuration.json")
+    if os.path.exists(checkpoint_location):
+        if not os.path.exists(configuration_path):
+            raise ValueError(
+                f"Checkpoint directory {checkpoint_location} already exists, but no configuration file was found."
+            )
+        with open(configuration_path, "r") as f:
+            saved_args = json.load(f)
+            for key, value in saved_args.items():
+                setattr(args, key, value)
 
 
 def train_with_config(
@@ -227,7 +245,6 @@ def train_with_config(
         learning_rate_scheduler=lr_scheduler,
         loss_function=combined_loss_fn,
         epochs=training_config.epochs,
-        minibatch_size=MAX_SINGLE_BATCH_SIZE,
         configuration=vars(training_config),
         experiment_name=training_config.experiment_name,
     )
