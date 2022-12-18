@@ -49,7 +49,7 @@ def prepare_dataloaders(
     elif dataset_name == "iron_march":
         if root is None:
             root = "data/iron_march"
-        dataset = IronMarch(root=root, verbose=verbose)[:10000]
+        dataset = IronMarch(root=root, verbose=verbose)
         train_set, val_set = dataset.split(validation_proportion=validation_proportion)
 
     training_args = {
