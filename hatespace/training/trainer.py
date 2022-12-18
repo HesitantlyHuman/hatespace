@@ -51,7 +51,8 @@ class HatespaceTrainer:
         ],
         epochs: int,
         experiment_name: str = None,
-        minibatch_size: int = 2,
+        minibatch_size: int = 8,
+        validation_minibatch_size: int = 2,
         verbose: bool = True,
         configuration: Dict[str, Any] = None,
     ) -> None:
@@ -69,6 +70,7 @@ class HatespaceTrainer:
         self.config = {
             "epochs": epochs,
             "minibatch_size": minibatch_size,
+            "validation_minibatch_size": validation_minibatch_size,
             "experiment_name": experiment_name,
             "world_size": self.world_size,
             "rank": self.rank,
@@ -175,7 +177,7 @@ class HatespaceTrainer:
     def validation_step(self, batch: Dict[str, Any]) -> torch.Tensor:
         with torch.no_grad():
             minibatches = split_batch_into_minibatches(
-                batch=batch, minibatch_size=self.config["minibatch_size"]
+                batch=batch, minibatch_size=self.config["validation_minibatch_size"]
             )
             loss = torch.Tensor([0.0]).to(self.device)
             minibatch_count = torch.Tensor([len(minibatches)]).to(self.device)
@@ -278,13 +280,21 @@ class HatespaceTrainer:
         del state_dict["model"]
         for key in ["epoch", "training_history", "validation_history"]:
             self.state[key] = state_dict["trainer"][key]
+        self.state["epoch"] += 1
 
     def load_from_checkpoint(self, checkpoint_directory: str) -> bool:
         checkpoint_path = os.path.join(checkpoint_directory, "checkpoint.pt")
-        if not os.path.exists(checkpoint_path):
+        configuration_path = os.path.join(checkpoint_directory, "configuration.json")
+        if not os.path.exists(checkpoint_path) or not os.path.exists(
+            configuration_path
+        ):
             return False
         state_dict = torch.load(checkpoint_path)
         self.load_state_dict(state_dict=state_dict)
+        with open(configuration_path, "r") as f:
+            configuration = json.load(f)
+        self.config = {key: configuration[key] for key in self.config}
+        return True
 
     def checkpoint(self, best_model: bool = False) -> None:
         if (self.checkpoint_directory is None) or (self.distributed and self.rank != 0):
@@ -339,7 +349,7 @@ class HatespaceTrainer:
         function: Callable,
     ) -> torch.Tensor:
         try:
-            function()
+            return function()
         except Exception as e:
             self.to("cpu")
             del self.model
@@ -354,7 +364,7 @@ class HatespaceTrainer:
             training_dataloader: torch.utils.data.DataLoader,
             validation_dataloader: torch.utils.data.DataLoader,
             device: str = None,
-        ):
+        ) -> torch.Tensor:
             return self._cleanup_if_exception(
                 lambda: _old_train_function(
                     training_dataloader=training_dataloader,

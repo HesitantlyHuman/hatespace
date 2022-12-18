@@ -1,4 +1,3 @@
-from importlib.metadata import distribution
 from typing import Dict, Tuple, Any, Callable, Union
 
 import torch
@@ -8,6 +7,7 @@ import numpy as np
 from tqdm import tqdm
 from hatespace.training.trainer import HatespaceTrainer
 from hatespace.training.trainer import split_batch_into_minibatches
+from hatespace.training.utils import report_cuda_memory_info
 
 
 class ArchetypalTrainer(HatespaceTrainer):
@@ -23,7 +23,8 @@ class ArchetypalTrainer(HatespaceTrainer):
         ],
         epochs: int,
         experiment_name: str = None,
-        minibatch_size: int = 2,
+        minibatch_size: int = 8,
+        validation_minibatch_size: int = 2,
         verbose: bool = True,
         configuration: Dict[str, Any] = None,
     ) -> None:
@@ -37,6 +38,7 @@ class ArchetypalTrainer(HatespaceTrainer):
             epochs=epochs,
             experiment_name=experiment_name,
             minibatch_size=minibatch_size,
+            validation_minibatch_size=validation_minibatch_size,
             verbose=verbose,
             configuration=configuration,
         )
@@ -162,18 +164,20 @@ class ArchetypalTrainer(HatespaceTrainer):
         }
 
     def validation_step(self, batch: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        minibatches = split_batch_into_minibatches(
+            batch=batch, minibatch_size=self.config["validation_minibatch_size"]
+        )
+        loss = torch.Tensor([0.0]).to(self.device)
+        reconstruction_loss = torch.Tensor([0.0]).to(self.device)
+        distribution_loss = torch.Tensor([0.0]).to(self.device)
+        minibatch_count = torch.Tensor([len(minibatches)]).to(self.device)
         with torch.no_grad():
-            minibatches = split_batch_into_minibatches(
-                batch=batch, minibatch_size=self.config["minibatch_size"]
-            )
-            loss = torch.Tensor([0.0]).to(self.device)
-            reconstruction_loss = torch.Tensor([0.0]).to(self.device)
-            distribution_loss = torch.Tensor([0.0]).to(self.device)
-            minibatch_count = torch.Tensor([len(minibatches)]).to(self.device)
-            for minibatch in minibatches:
+            for i, minibatch in enumerate(minibatches):
                 minibatch = self.tokenize_batch(minibatch)
                 with autocast(device_type=self.device.type):
-                    minibatch_losses = self.calculate_loss(tokens=minibatch)
+                    minibatch_losses = self.calculate_loss(
+                        tokens=minibatch,
+                    )
                 loss += minibatch_losses["loss"].detach()
                 reconstruction_loss += minibatch_losses["reconstruction_loss"]
                 distribution_loss += minibatch_losses["distribution_loss"]
@@ -272,12 +276,13 @@ class ArchetypalTrainer(HatespaceTrainer):
                 training_losses["distribution_loss"]
             )
             self.model.eval()
-            validation_losses = self.run_epoch(
-                data_loader=validation_dataloader,
-                step_function=self.validation_step,
-                name="Validation",
-                verbose=self.verbose,
-            )
+            with torch.no_grad():
+                validation_losses = self.run_epoch(
+                    data_loader=validation_dataloader,
+                    step_function=self.validation_step,
+                    name="Validation",
+                    verbose=self.verbose,
+                )
             self.state["validation_history"]["loss"].append(validation_losses["loss"])
             self.state["validation_history"]["reconstruction_loss"].append(
                 validation_losses["reconstruction_loss"]

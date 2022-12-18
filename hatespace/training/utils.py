@@ -65,6 +65,29 @@ class GeneratorSlice:
             raise StopIteration
 
 
+def _convert_bytes_to_gb(bytes: int) -> float:
+    return bytes / (1024**3)
+
+
+def report_cuda_memory_info() -> str:
+    """
+    Returns a string with information about the CUDA memory usage.
+    Reported memory usage is in GB.
+    """
+
+    return (
+        "-- Allocated Memory --\n"
+        + f"Current: {_convert_bytes_to_gb(torch.cuda.memory_allocated()):0.2f} GB\n"
+        + f"Max: {_convert_bytes_to_gb(torch.cuda.max_memory_allocated()):0.2f} GB\n"
+        + "-- Cached Memory --\n"
+        + f"Current: {_convert_bytes_to_gb(torch.cuda.memory_cached()):0.2f} GB\n"
+        + f"Max: {_convert_bytes_to_gb(torch.cuda.max_memory_cached()):0.2f} GB\n"
+        + "-- Reserved Memory --\n"
+        + f"Current: {_convert_bytes_to_gb(torch.cuda.memory_reserved()):0.2f} GB\n"
+        + f"Max: {_convert_bytes_to_gb(torch.cuda.max_memory_reserved()):0.2f} GB\n"
+    )
+
+
 if __name__ == "__main__":
     for i in range(100):
         print(generate_experiment_name())
