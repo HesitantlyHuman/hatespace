@@ -11,16 +11,19 @@ class DirichletGOF:
         self.significance_level = significance_level
         self.sample_size = sample_size
         self.dim = dim
-  
+
         self.dir_dist = self.dirichlet_dist(self.dim)
 
         self.Dir = self.symm_dirichlet(1)
 
-        
+        '''
         if crit_val_arr is None:
             self.crit_value = self.critical_value()
         else:
             self.crit_value = np.quantile(crit_val_arr, self.significance_level)
+        '''
+
+        self.crit_value = 0
 
     class symm_dirichlet:
         def __init__(self, alpha, resolution=2**16):
@@ -36,7 +39,7 @@ class DirichletGOF:
                 raise NotImplementedError
             gamma = self.table[np.random.randint(0, self.resolution, (n_sampl, n_comp))]
             return gamma / gamma.sum(axis=1, keepdims=True)
-        
+
     def initial_params(self, x):
         x1 = np.mean(x, axis=0)
         x2 = np.mean(x[:, 0]**2)
@@ -72,7 +75,7 @@ class DirichletGOF:
                 break
             else:
                 prev = alpha
-          
+
         return alpha
 
     def dirichlet_transform(self, x, alpha):
@@ -132,7 +135,7 @@ class DirichletGOF:
                 statistic = (2 * sample_dirichlet_dist) - (self.sample_size * self.dir_dist) - ((1/self.sample_size) * sample_dist)
 
                 statistics_arr[start+i] = statistic
-     
+
         for index in range(num_threads):
             x = threading.Thread(target=compute_statistics, args=(x_samples[index * subdiv: (index+1)*subdiv], index * subdiv,))
             threads.append(x)
@@ -149,7 +152,7 @@ class DirichletGOF:
     def energy_statistic(self, x):
         input_size = x.shape[0]
         n = x.shape[1]
-      
+
         x_ = x[:, None, :]
 
         input_dist = np.sum(np.sqrt(np.einsum('ijk, ijk->ij', x-x_, x-x_)))
@@ -170,7 +173,7 @@ class DirichletGOF:
         return energy_statistic(x, dir_dist, d) / x.shape[0]
 
     def test_statistic(self, x, n_iter=1000, print_log=False):
-        
+
         random_indices = np.random.rand(n_iter, x.shape[0]).argpartition(self.sample_size, axis=1)[:,:self.sample_size]
         stats = []
         for i in range(n_iter):
@@ -187,4 +190,3 @@ class DirichletGOF:
                 print()
 
         return {'Sample Test Statistics': stats, 'Power': sum(i > self.crit_value for i in stats) / n_iter}
-
