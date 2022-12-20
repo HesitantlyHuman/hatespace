@@ -16,13 +16,11 @@ class DirichletGOF:
 
         self.Dir = self.symm_dirichlet(1)
 
-        '''
+        
         if crit_val_arr is None:
             self.crit_value = self.critical_value()
         else:
             self.crit_value = np.quantile(crit_val_arr, self.significance_level)
-        '''
-        self.crit_value = 0
 
     class symm_dirichlet:
         def __init__(self, alpha, resolution=2**16):
