@@ -13,6 +13,7 @@ class HatespaceMultiCriterion:
         reconstruction_loss_weight: float = 1.0,
         distribution_loss_weight: float = 1.0,
         side_info_loss_weight: float = 1.0,
+        return_dict: bool = False,
 
     ):
         self.reconstruction_loss = reconstruction_loss
@@ -34,11 +35,21 @@ class HatespaceMultiCriterion:
         distribution_loss = self.distribution_loss(embeddings)
         side_info_loss = self.side_info_loss(side_info_logits, side_info_targets)
 
-        return (
+        loss = (
             self.reconstruction_loss_weight * reconstruction_loss
             + self.distribution_loss_weight * distribution_loss
             + self.side_info_loss_weight * side_info_loss
         )
+
+        if self.return_dict:
+            return {
+                "loss": loss,
+                "reconstruction_loss": reconstruction_loss.detach(),
+                "distribution_loss": distribution_loss.detach(),
+                "side_info_loss": side_info_loss.detach(),
+            }
+        else:
+            return loss
 
 
 # TODO consider creating custom sinkhorn loss and testing speed

@@ -34,17 +34,19 @@ class HatespaceTrainer:
     def __init__(
         self,
         experiment_root: str,
-        model: hatespace.models.TransformerArchetypal,
+        model: torch.nn.Module,
         tokenizer: transformers.PreTrainedTokenizer,
         optimizer: torch.optim.Optimizer,
         learning_rate_scheduler: torch.optim.lr_scheduler._LRScheduler,
         loss_function: Callable[
-            [torch.Tensor, torch.Tensor, torch.Tensor, Torch.Tensor, torch.Tensor], torch.Tensor
+            [torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor
         ],
         epochs: int,
         experiment_name: str = None,
-        minibatch_size: int = 2,
+        minibatch_size: int = 8,
+        validation_minibatch_size: int = 2,
         verbose: bool = True,
+        configuration: Dict[str, Any] = None,
     ) -> None:
         self.model = model
         self.distributed = dist.is_initialized()
