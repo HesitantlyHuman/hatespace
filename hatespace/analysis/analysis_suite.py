@@ -293,7 +293,7 @@ class IronmarchAnalysis:
                 timestamps = [datetime.fromtimestamp(x).replace(hour=0, minute=0, second=0) for x in unix_timestamps]
 
                 initial = datetime.fromtimestamp(start)
-                
+
                 offset = 1
                 time_indices = []
 
@@ -382,7 +382,12 @@ class IronmarchAnalysis:
             # Get closest indices to each archetype by sorting
             indices = np.argsort(dists)[:, :num_vectors_per_at]
             nearest_indices.append(indices)
-            nearest_vectors.append(np.concatenate([latent[x] for x in indices]))
+
+            vectors = np.zeros(self.latent_dim_size, num_vectors_per_at, self.latent_dim_size)
+            for i, x in enumerate(indices):
+                vectors[i] = latent[x]
+
+            nearest_vectors.append(vectors)
 
         return nearest_indices, nearest_vectors
 
