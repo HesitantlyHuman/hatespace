@@ -383,7 +383,7 @@ class IronmarchAnalysis:
             indices = np.argsort(dists)[:, :num_vectors_per_at]
             nearest_indices.append(indices)
 
-            vectors = np.zeros((latent_dim_sizelatent_dim_size))
+            vectors = np.zeros((self.latent_dim_size, num_vectors_per_at, self.latent_dim_size))
             for i, x in enumerate(indices):
                 vectors[i] = latent[x]
 
