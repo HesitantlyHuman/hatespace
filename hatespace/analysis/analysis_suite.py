@@ -383,7 +383,7 @@ class IronmarchAnalysis:
             indices = np.argsort(dists)[:, :num_vectors_per_at]
             nearest_indices.append(indices)
 
-            vectors = np.zeros((self.latent_dim_size, num_vectors_per_at, self.latent_dim_size))
+            vectors = np.zeros((latent_dim_sizelatent_dim_size))
             for i, x in enumerate(indices):
                 vectors[i] = latent[x]
 
@@ -404,9 +404,10 @@ class IronmarchAnalysis:
             shutil.rmtree(dir)
         os.makedirs(dir)
 
-        for idx, (indices, posts, timestamps, authors, post_ids) in enumerate(
+        for idx, (indices, vectors, posts, timestamps, authors, post_ids) in enumerate(
             zip(
                 nearest_indices,
+                nearest_vectors,
                 self.posts_list,
                 self.ymd_timestamps_list,
                 self.authors_list,
@@ -427,11 +428,12 @@ class IronmarchAnalysis:
 
                     for j, k in enumerate(indices[i]):
                         f.write(
-                            "{} -- {} -- Author {} -- ID {} -- {}".format(
+                            "{} -- {} -- Author: {} -- ID: {} -- Percentage: {:0.3f}\n{}".format(
                                 j,
                                 timestamps[k],
                                 authors[k],
                                 post_ids[k],
+                                vectors[i][j][i],
                                 re.sub("[\n\t\r]", " ", posts[k]),
                             )
                         )
