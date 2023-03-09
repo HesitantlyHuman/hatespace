@@ -366,6 +366,36 @@ class IronmarchAnalysis:
             "authors": authors,
         }
 
+    def dists_to_ats(self):
+        simplex_vertices = np.eye(self.latent_dim_size)
+        dists_arr = []
+        for latent in self.latent_vectors_list:
+            dists = np.zeros((self.latent_dim_size, latent.shape[0]))
+            for i, vertex in enumerate(simplex_vertices):
+                dist = np.linalg.norm(embeddings - vertex, axis=1)
+                dists[i] = dist
+            dists_arr.append(dists)
+
+        return dists_arr
+
+    def make_violin_plot(self, save_to_folder: str = ''):
+        dir = os.path.join(save_to_folder, "violin_plots")
+        if os.path.exists(dir):
+            shutil.rmtree(dir)
+        os.makedirs(dir)
+
+        dists_arr = self.dists_to_ats()
+
+        for idx, dists in enumerate(dists_arr):
+            plt.figure(figsize=(8,5))
+            plt.violinplot([dists[i] for i in range(self.latent_dim_size)], showmedians=True)
+            plt.xticks(np.linspace(0, self.latent_dim_size, self.latent_dim_size+1))
+            plt.xlabel('Archetypes')
+            plt.ylabel('Distances')
+            plt.title('{} to {}'.format(self.ymd_timestamps_list[idx][0], self.ymd_timestamps_list[idx][-1]))
+            plt.savefig(os.path.join(dir, "violin_plot_{}.txt".format(idx)))
+
+
     def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
         """
         Returns array of indices closest to all archetypes.
