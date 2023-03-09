@@ -393,7 +393,7 @@ class IronmarchAnalysis:
             plt.xlabel('Archetypes')
             plt.ylabel('Distances')
             plt.title('{} to {}'.format(self.ymd_timestamps_list[idx][0], self.ymd_timestamps_list[idx][-1]))
-            plt.savefig(os.path.join(dir, "violin_plot_{}.txt".format(idx)))
+            plt.savefig(os.path.join(dir, "violin_plot_{}.jpg".format(idx)))
 
 
     def get_nearest_indices(self, num_vectors_per_at: int) -> np.ndarray:
