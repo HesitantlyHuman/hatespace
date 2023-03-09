@@ -372,7 +372,7 @@ class IronmarchAnalysis:
         for latent in self.latent_vectors_list:
             dists = np.zeros((self.latent_dim_size, latent.shape[0]))
             for i, vertex in enumerate(simplex_vertices):
-                dist = np.linalg.norm(embeddings - vertex, axis=1)
+                dist = np.linalg.norm(latent - vertex, axis=1)
                 dists[i] = dist
             dists_arr.append(dists)
 
