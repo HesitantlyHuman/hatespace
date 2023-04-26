@@ -3,7 +3,7 @@ import os
 import csv
 import sys
 from hatespace.datasets.base import Dataset, DataItem
-from hatespace.datasets.clean import format_post
+from hatespace.datasets.ironmarch.clean import format_post
 
 csv.field_size_limit(sys.maxsize)
 
