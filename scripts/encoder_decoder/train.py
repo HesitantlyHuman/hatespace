@@ -6,18 +6,25 @@ from hatespace.training.losses import SequenceLoss
 from hatespace.training import EncoderDecoderTrainer
 from transformers import EncoderDecoderModel, get_scheduler
 
+import argparse
+
 MAX_SINGLE_BATCH_SIZE = 8
 
-# TODO: Add a cli, so that running the code is even easier
-config = {
-    "training_steps": 300_000,
-    "max_learning_rate": 1e-5,
-    "batch_size": 16,
-    "weight_decay": 0.01,
-}
+# Quick cli
+args = argparse.ArgumentParser()
+args.add_argument("--batch_size", type=int, default=16)
+args.add_argument("--max_learning_rate", type=float, default=3e-5)
+args.add_argument("--weight_decay", type=float, default=0.01)
+args.add_argument("--training_steps", type=int, default=300_000)
+args.add_argument("--warmup_proportion", type=int, default=0.1)
+args.add_argument("--data_root", type=str, default="data/cc_news")
+args.add_argument("--save_path", type=str, default="checkpoints/encoder_decoder")
+args.add_argument("--save_every", type=int, default=750)
+args.add_argument("--quantile_clip", type=float, default=0.7)
+
+config = vars(args.parse_args())
 
 model_name = "roberta-base"
-
 
 print("Loading transformer models...")
 tokenizer = Tokenizer(model_name, 512)
@@ -38,6 +45,7 @@ train_loader, val_loader = prepare_dataloaders(
     training_batch_size=config["batch_size"],
     validation_batch_size=config["batch_size"],
     num_workers=12,
+    root=config["data_root"],
 )
 training_epoch_length = len(train_loader)
 num_epochs = config["training_steps"] // training_epoch_length
@@ -48,18 +56,21 @@ optimizer = torch.optim.AdamW(
     weight_decay=config["weight_decay"],
 )
 optimizer = QuantileClip.as_optimizer(
-    optimizer, quantile=0.5, history_length=1000, global_threshold=False
+    optimizer,
+    quantile=config["quantile_clip"],
+    history_length=1000,
+    global_threshold=False,
 )
 lr_scheduler = get_scheduler(
     name="cosine",
     optimizer=optimizer,
-    num_warmup_steps=(num_epochs * training_epoch_length) * 0.1,
+    num_warmup_steps=(num_epochs * training_epoch_length) * config["warmup_proportion"],
     num_training_steps=num_epochs * training_epoch_length,
 )
 loss_fn = SequenceLoss(ignore_index=tokenizer.pad_token_id)
 
 trainer = EncoderDecoderTrainer(
-    "checkpoints/encoder_decoder",
+    experiment_root=config["save_path"],
     model=model,
     optimizer=optimizer,
     tokenizer=tokenizer,
@@ -71,5 +82,6 @@ trainer = EncoderDecoderTrainer(
 trainer.train(
     training_dataloader=train_loader,
     validation_dataloader=val_loader,
+    checkpoint_frequency=config["save_every"],
     device=DEVICE,
 )

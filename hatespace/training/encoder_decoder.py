@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Callable, Union, Any, Tuple, List
 
 import torch
 from hatespace.training.trainer import HatespaceTrainer

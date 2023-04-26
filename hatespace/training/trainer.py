@@ -78,7 +78,12 @@ class HatespaceTrainer:
         }
         if configuration is not None:
             self.config.update(configuration)
-        self.state = {"epoch": 0, "training_history": [], "validation_history": []}
+        self.state = {
+            "epoch": 0,
+            "step": 0,
+            "training_history": [],
+            "validation_history": [],
+        }
 
         if experiment_root is None:
             self.checkpoint_directory = None
@@ -201,13 +206,15 @@ class HatespaceTrainer:
         self,
         data_loader: torch.utils.data.DataLoader,
         step_function: Callable[[torch.nn.Module, Dict[str, Any]], torch.Tensor],
+        callback: Callable[[int, float], None] = None,
+        callback_frequency: int = 1,
         name: str = None,
         verbose: bool = True,
     ) -> torch.Tensor:
         batch_losses = []
         if verbose and self.rank == 0:
             data_loader = tqdm(data_loader, desc=name)
-        for batch in data_loader:
+        for batch_idx, batch in enumerate(data_loader):
             loss = step_function(batch)
 
             # Update metric tracking
@@ -216,12 +223,17 @@ class HatespaceTrainer:
                 data_loader.set_postfix(
                     {"Avg Loss": "{:4.3f}".format(np.mean(batch_losses[-300:]))}
                 )
+
+            if callback is not None and batch_idx % callback_frequency == 0:
+                callback(batch_idx, loss)
+
         return torch.Tensor(batch_losses).mean().item()
 
     def train(
         self,
         training_dataloader: torch.utils.data.DataLoader,
         validation_dataloader: torch.utils.data.DataLoader,
+        checkpoint_frequency: int = None,
         device: Union[str, torch.device] = None,
     ) -> torch.Tensor:
         if not device is None:
@@ -232,11 +244,18 @@ class HatespaceTrainer:
             self._log(f"--- Epoch {epoch}/{epochs} ---")
             self.state["epoch"] = epoch
             self.model.train()
+
+            def _callback(batch_idx, loss):
+                self.state["step"] = batch_idx
+                self.checkpoint()
+
             training_loss = self.run_epoch(
                 data_loader=training_dataloader,
                 step_function=self.training_step,
                 name="Training",
                 verbose=self.verbose,
+                callback=_callback if checkpoint_frequency else None,
+                callback_frequency=checkpoint_frequency,
             )
             self.state["training_history"].append(training_loss)
             self.model.eval()
@@ -364,12 +383,14 @@ class HatespaceTrainer:
         def train(
             training_dataloader: torch.utils.data.DataLoader,
             validation_dataloader: torch.utils.data.DataLoader,
+            checkpoint_frequency: int = None,
             device: str = None,
         ) -> torch.Tensor:
             return self._cleanup_if_exception(
                 lambda: _old_train_function(
                     training_dataloader=training_dataloader,
                     validation_dataloader=validation_dataloader,
+                    checkpoint_frequency=checkpoint_frequency,
                     device=device,
                 )
             )
