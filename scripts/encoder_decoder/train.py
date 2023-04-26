@@ -10,7 +10,7 @@ MAX_SINGLE_BATCH_SIZE = 8
 
 # TODO: Add a cli, so that running the code is even easier
 config = {
-    "training_steps": 100_000,
+    "training_steps": 300_000,
     "max_learning_rate": 1e-5,
     "batch_size": 16,
     "weight_decay": 0.01,

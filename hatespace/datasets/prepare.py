@@ -47,7 +47,6 @@ def prepare_dataloaders(
         # TODO why are we taking the train split and then splitting it again?
         # TODO should obey verbose
         dataset = load_dataset("cc_news", cache_dir=root, keep_in_memory=True)["train"]
-        dataset = dataset.select(range(100))
         dataset = dataset.train_test_split(train_size=1 - validation_proportion)
         train_set, val_set = dataset["train"], dataset["test"]
     elif dataset_name == "iron_march":
