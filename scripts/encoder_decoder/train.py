@@ -21,6 +21,7 @@ args.add_argument("--data_root", type=str, default="data/cc_news")
 args.add_argument("--save_path", type=str, default="checkpoints/encoder_decoder")
 args.add_argument("--save_every", type=int, default=750)
 args.add_argument("--quantile_clip", type=float, default=0.7)
+args.add_argument("--minibatch_size", type=int, default=MAX_SINGLE_BATCH_SIZE)
 
 config = vars(args.parse_args())
 
@@ -77,7 +78,7 @@ trainer = EncoderDecoderTrainer(
     learning_rate_scheduler=lr_scheduler,
     loss_function=loss_fn,
     epochs=num_epochs,
-    minibatch_size=MAX_SINGLE_BATCH_SIZE,
+    minibatch_size=config["minibatch_size"],
 )
 trainer.train(
     training_dataloader=train_loader,
