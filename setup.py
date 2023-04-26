@@ -21,5 +21,8 @@ if __name__ == "__main__":
             "geomloss",
             "html2text >=2020.0.0",
             "transformers >=4.0.0",
+            "datasets >= 2.4.0",
+            "bs4",
+            "tqdm",
         ],
     )
