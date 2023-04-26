@@ -7,7 +7,6 @@ import numpy as np
 from tqdm import tqdm
 from hatespace.training.trainer import HatespaceTrainer
 from hatespace.training.trainer import split_batch_into_minibatches
-from hatespace.training.utils import report_cuda_memory_info
 
 
 class ArchetypalTrainer(HatespaceTrainer):

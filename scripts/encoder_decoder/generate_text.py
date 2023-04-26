@@ -8,14 +8,18 @@ logging.set_verbosity_error()
 
 # TODO this functionality should be combined with the train and test functions
 
-tokenizer = Tokenizer("roberta-base", 512, return_as_list=False)
+model_path = "checkpoints/encoder_decoder/fine-raven/best_model.pt"
+base_model_name = "roberta-base"
+
+tokenizer = Tokenizer(base_model_name, 512)
 model = EncoderDecoderModel.from_encoder_decoder_pretrained(
-    "roberta-base", "roberta-base"
+    base_model_name, base_model_name
 )
-state_dict = torch.load("checkpoints/encoder_decoder/lower_lr_rate/checkpoint.pth")
-state_dict = state_dict["model"]
+state_dict = torch.load(model_path)
 state_dict = {key.split("module.")[1]: value for key, value in state_dict.items()}
 model.load_state_dict(state_dict)
+model.eval()
+model.to("cuda")
 
 test_strings = [
     "here is a test string",
@@ -27,8 +31,8 @@ test_strings = [
 ]
 
 test_string_tokens = tokenizer(test_strings)
-input_ids = test_string_tokens["input_ids"]
-attention_mask = test_string_tokens["attention_mask"]
+input_ids = test_string_tokens["input_ids"].to("cuda")
+attention_mask = test_string_tokens["attention_mask"].to("cuda")
 
 outputs = model(
     input_ids=input_ids,
@@ -36,10 +40,6 @@ outputs = model(
     attention_mask=attention_mask,
     decoder_attention_mask=attention_mask,
 )
-max_likelihood_tokens = torch.argmax(outputs.logits, dim=2)
+max_likelihood_tokens = torch.argmax(outputs.logits, dim=-1).cpu()
 decoded_tokens = tokenizer.batch_decode(max_likelihood_tokens)
-print(decoded_tokens)
-
-outputs = model.generate(input_ids=input_ids)
-decoded_tokens = tokenizer.batch_decode(outputs)
 print(decoded_tokens)

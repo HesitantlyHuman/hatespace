@@ -26,7 +26,7 @@ class TransformerArchetypal(EncoderDecoderModel):
         )
         del encoder_decoder
 
-        self.train()
+        self.train()  # WHY?!?!
         self.decoder.gradient_checkpointing_enable()
 
         self.inner_embedder = inner_embedder

@@ -216,7 +216,7 @@ class HatespaceTrainer:
                 data_loader.set_postfix(
                     {"Avg Loss": "{:4.3f}".format(np.mean(batch_losses[-300:]))}
                 )
-        return torch.mean(torch.Tensor(batch_losses))
+        return torch.Tensor(batch_losses).mean().item()
 
     def train(
         self,
@@ -317,6 +317,7 @@ class HatespaceTrainer:
             return
         if not os.path.exists(self.checkpoint_directory):
             os.makedirs(self.checkpoint_directory)
+
         with open(
             os.path.join(self.checkpoint_directory, "training_history.json"), "w"
         ) as f:

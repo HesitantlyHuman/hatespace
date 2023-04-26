@@ -1,5 +1,10 @@
 from transformers import AutoTokenizer
 
+import os
+
+# Allow for parallelism and disable warning
+os.environ["TOKENIZERS_PARALLELISM"] = "true"
+
 
 class Tokenizer:
     """Simple huggingface tokenizer wrapper"""

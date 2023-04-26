@@ -10,19 +10,18 @@ MAX_SINGLE_BATCH_SIZE = 8
 
 # TODO: Add a cli, so that running the code is even easier
 config = {
-    "training_steps": 1_000_000,
-    "validation_steps": 100_000,
-    "max_learning_rate": 1e-4,
-    "batch_size": 64,
-    "weight_decay": 0.075,
+    "training_steps": 100_000,
+    "max_learning_rate": 1e-5,
+    "batch_size": 16,
+    "weight_decay": 0.01,
 }
+
+model_name = "roberta-base"
 
 
 print("Loading transformer models...")
-tokenizer = Tokenizer("roberta-base", 512)
-model = EncoderDecoderModel.from_encoder_decoder_pretrained(
-    "roberta-base", "roberta-base"
-)
+tokenizer = Tokenizer(model_name, 512)
+model = EncoderDecoderModel.from_encoder_decoder_pretrained(model_name, model_name)
 if torch.cuda.is_available():
     DEVICE = "cuda"
     if torch.cuda.device_count() > 1:
@@ -32,6 +31,16 @@ else:
     DEVICE = "cpu"
     print(f"Using cpu...")
 model.to(DEVICE)
+
+print("Loading dataset...")
+train_loader, val_loader = prepare_dataloaders(
+    "cc_news",
+    training_batch_size=config["batch_size"],
+    validation_batch_size=config["batch_size"],
+    num_workers=12,
+)
+training_epoch_length = len(train_loader)
+num_epochs = config["training_steps"] // training_epoch_length
 
 optimizer = torch.optim.AdamW(
     model.parameters(),
@@ -44,17 +53,10 @@ optimizer = QuantileClip.as_optimizer(
 lr_scheduler = get_scheduler(
     name="cosine",
     optimizer=optimizer,
-    num_warmup_steps=config["training_steps"] * 0.3,
-    num_training_steps=config["training_steps"],
+    num_warmup_steps=(num_epochs * training_epoch_length) * 0.1,
+    num_training_steps=num_epochs * training_epoch_length,
 )
 loss_fn = SequenceLoss(ignore_index=tokenizer.pad_token_id)
-print("Loading dataset...")
-train_loader, val_loader = prepare_dataloaders(
-    "cc_news",
-    training_batch_size=config["batch_size"],
-    validation_batch_size=config["batch_size"],
-    num_workers=12,
-)
 
 trainer = EncoderDecoderTrainer(
     "checkpoints/encoder_decoder",
@@ -63,7 +65,7 @@ trainer = EncoderDecoderTrainer(
     tokenizer=tokenizer,
     learning_rate_scheduler=lr_scheduler,
     loss_function=loss_fn,
-    epochs=10,
+    epochs=num_epochs,
     minibatch_size=MAX_SINGLE_BATCH_SIZE,
 )
 trainer.train(

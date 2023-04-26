@@ -33,3 +33,4 @@ To train a model, simply run the `train.py` script. (Currently still under const
 
 # Analyzing the Latent Space
 This project is currently under development, and no embeddings are available at this time. Feel free to clone the repo and run the code to generate your own.
+
