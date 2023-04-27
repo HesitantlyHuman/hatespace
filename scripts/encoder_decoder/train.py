@@ -22,6 +22,12 @@ args.add_argument("--save_path", type=str, default="checkpoints/encoder_decoder"
 args.add_argument("--save_every", type=int, default=750)
 args.add_argument("--quantile_clip", type=float, default=0.7)
 args.add_argument("--minibatch_size", type=int, default=MAX_SINGLE_BATCH_SIZE)
+args.add_argument(
+    "--experiment_name",
+    type=str,
+    default=None,
+    help="Name of the experiment. If None, a name will be generated. Otherwise, the trainer will look for existing checkpoints with the same name and continue training from there if they exist.",
+)
 
 config = vars(args.parse_args())
 
@@ -40,13 +46,13 @@ else:
     print(f"Using cpu...")
 model.to(DEVICE)
 
-print("Loading dataset...")
 train_loader, val_loader = prepare_dataloaders(
     "cc_news",
     training_batch_size=config["batch_size"],
     validation_batch_size=config["batch_size"],
     num_workers=12,
     root=config["data_root"],
+    verbose=False,
 )
 training_epoch_length = len(train_loader)
 num_epochs = config["training_steps"] // training_epoch_length
@@ -72,6 +78,7 @@ loss_fn = SequenceLoss(ignore_index=tokenizer.pad_token_id)
 
 trainer = EncoderDecoderTrainer(
     experiment_root=config["save_path"],
+    experiment_name=config["experiment_name"],
     model=model,
     optimizer=optimizer,
     tokenizer=tokenizer,
@@ -79,7 +86,19 @@ trainer = EncoderDecoderTrainer(
     loss_function=loss_fn,
     epochs=num_epochs,
     minibatch_size=config["minibatch_size"],
+    configuration=config,
 )
+
+# We may need to load the dataset again if the seed has changed
+print("Loading dataset...")
+train_loader, val_loader = prepare_dataloaders(
+    "cc_news",
+    training_batch_size=trainer.config["batch_size"],
+    validation_batch_size=trainer.config["batch_size"],
+    num_workers=12,
+    root=trainer.config["data_root"],
+)
+
 trainer.train(
     training_dataloader=train_loader,
     validation_dataloader=val_loader,

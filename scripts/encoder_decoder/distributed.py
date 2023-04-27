@@ -136,7 +136,6 @@ def train_with_config(
         rank=rank,
     )
     torch.cuda.set_device(process_id)
-    set_global_seed(training_config.seed)
 
     if process_id == 0:
         print("Loading transformer models...")

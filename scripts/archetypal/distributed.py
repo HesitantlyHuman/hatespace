@@ -4,7 +4,6 @@ import json
 from torch.nn.parallel import DistributedDataParallel
 from autoclip.torch import QuantileClip
 from hatespace.datasets.prepare import prepare_dataloaders
-from hatespace.training.utils import set_global_seed
 import hatespace
 import hatespace.models
 import hatespace.training
@@ -174,7 +173,6 @@ def train_with_config(
         rank=rank,
     )
     torch.cuda.set_device(process_id)
-    set_global_seed(training_config.seed)
 
     if process_id == 0:
         print("Loading transformer models...")

@@ -3,6 +3,8 @@ import torch
 from hatespace.datasets import IronMarch, DataLoader
 from torch.utils.data._utils.collate import default_collate
 import os
+import sys
+import io
 
 
 # TODO Do something about installing apache_beam and mwparserfromhell or asking the user to do so
@@ -44,11 +46,15 @@ def prepare_dataloaders(
 
         if root is None:
             root = "data/cc_news"
-        # TODO why are we taking the train split and then splitting it again?
-        # TODO should obey verbose
+        if not verbose:
+            from datasets.utils.logging import disable_progress_bar, enable_progress_bar
+
+            disable_progress_bar()
         dataset = load_dataset("cc_news", cache_dir=root, keep_in_memory=True)["train"]
         dataset = dataset.train_test_split(train_size=1 - validation_proportion)
         train_set, val_set = dataset["train"], dataset["test"]
+        if not verbose:
+            enable_progress_bar()
     elif dataset_name == "iron_march":
         if root is None:
             root = "data/iron_march"

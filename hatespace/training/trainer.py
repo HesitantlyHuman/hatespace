@@ -13,6 +13,7 @@ import hatespace
 from hatespace.training.utils import (
     generate_experiment_name,
     split_batch_into_minibatches,
+    set_global_seed,
 )
 
 import torch.distributed as dist
@@ -55,6 +56,7 @@ class HatespaceTrainer:
         validation_minibatch_size: int = 2,
         verbose: bool = True,
         configuration: Dict[str, Any] = None,
+        seed: int = None,
     ) -> None:
         self.model = model
         self.distributed = isinstance(model, torch.nn.parallel.DistributedDataParallel)
@@ -75,6 +77,7 @@ class HatespaceTrainer:
             "world_size": self.world_size,
             "rank": self.rank,
             "verbose": verbose,
+            "seed": seed,
         }
         if configuration is not None:
             self.config.update(configuration)
@@ -106,10 +109,14 @@ class HatespaceTrainer:
             self._log(
                 f"No existing training checkpoint found in directory '{self.checkpoint_directory}'. Starting new training..."
             )
-            self.save_configuration()
+
+        if self.config["seed"] is None:
+            self.config["seed"] = np.random.randint(0, 2**32 - 1)
+        set_global_seed(self.config["seed"])
 
         self.to(next(self.model.parameters()).device)
         self._wrap_train_with_cleanup()
+        self.save_configuration()
 
     def batch_prediction(self, tokens: Dict[str, torch.Tensor]) -> Any:
         raise NotImplementedError
@@ -208,13 +215,19 @@ class HatespaceTrainer:
         step_function: Callable[[torch.nn.Module, Dict[str, Any]], torch.Tensor],
         callback: Callable[[int, float], None] = None,
         callback_frequency: int = 1,
+        start_from_batch: int = 0,
         name: str = None,
         verbose: bool = True,
     ) -> torch.Tensor:
         batch_losses = []
+
         if verbose and self.rank == 0:
             data_loader = tqdm(data_loader, desc=name)
+
         for batch_idx, batch in enumerate(data_loader):
+            if batch_idx < start_from_batch:
+                continue
+
             loss = step_function(batch)
 
             # Update metric tracking
@@ -254,6 +267,7 @@ class HatespaceTrainer:
                 step_function=self.training_step,
                 name="Training",
                 verbose=self.verbose,
+                start_from_batch=self.state["step"],
                 callback=_callback if checkpoint_frequency else None,
                 callback_frequency=checkpoint_frequency,
             )
@@ -297,8 +311,21 @@ class HatespaceTrainer:
         del state_dict["scalar"]
         self.model.load_state_dict(state_dict=state_dict["model"])
         del state_dict["model"]
-        for key in ["epoch", "training_history", "validation_history"]:
+        state_keys = ["epoch", "step", "training_history", "validation_history"]
+        for key in state_dict["trainer"]:
+            if not key in state_keys:
+                warnings.warn(
+                    f"Key {key} not a valid trainer state variable. Ignoring.",
+                    RuntimeWarning,
+                )
+                continue
             self.state[key] = state_dict["trainer"][key]
+            state_keys.remove(key)
+        if len(state_keys) > 0:
+            warnings.warn(
+                f"Keys {state_keys} not found in checkpoint. Using default values.",
+                RuntimeWarning,
+            )
         self.state["epoch"] += 1
 
     def load_from_checkpoint(self, checkpoint_directory: str) -> bool:
@@ -312,7 +339,14 @@ class HatespaceTrainer:
         self.load_state_dict(state_dict=state_dict)
         with open(configuration_path, "r") as f:
             configuration = json.load(f)
-        self.config = {key: configuration[key] for key in self.config}
+        for key in self.config:
+            if not key in configuration:
+                warnings.warn_explicit(
+                    f"Key {key} not found in checkpoint file. Using provided value of {self.config[key]}.",
+                    UserWarning,
+                )
+            else:
+                self.config[key] = configuration[key]
         return True
 
     def checkpoint(self, best_model: bool = False) -> None:
