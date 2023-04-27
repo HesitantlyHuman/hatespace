@@ -309,7 +309,20 @@ class HatespaceTrainer:
         del state_dict["scheduler"]
         self.scalar.load_state_dict(state_dict=state_dict["scalar"])
         del state_dict["scalar"]
-        self.model.load_state_dict(state_dict=state_dict["model"])
+        try:
+            self.model.load_state_dict(state_dict=state_dict["model"])
+        except RuntimeError:
+            try:
+                modified_state_dict = {
+                    key[key.find("module.") + 7 :]: value
+                    for key, value in state_dict["model"].items()
+                }
+                self.model.load_state_dict(state_dict=modified_state_dict)
+            except RuntimeError:
+                modified_state_dict = {
+                    "module." + key: value for key, value in state_dict["model"].items()
+                }
+                self.model.load_state_dict(state_dict=modified_state_dict)
         del state_dict["model"]
         state_keys = ["epoch", "step", "training_history", "validation_history"]
         for key in state_dict["trainer"]:

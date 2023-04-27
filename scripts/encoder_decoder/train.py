@@ -52,7 +52,6 @@ train_loader, val_loader = prepare_dataloaders(
     validation_batch_size=config["batch_size"],
     num_workers=12,
     root=config["data_root"],
-    verbose=False,
 )
 training_epoch_length = len(train_loader)
 num_epochs = config["training_steps"] // training_epoch_length
@@ -97,6 +96,7 @@ train_loader, val_loader = prepare_dataloaders(
     validation_batch_size=trainer.config["batch_size"],
     num_workers=12,
     root=trainer.config["data_root"],
+    verbose=False,
 )
 
 trainer.train(
