@@ -354,7 +354,7 @@ class HatespaceTrainer:
             configuration = json.load(f)
         for key in self.config:
             if not key in configuration:
-                warnings.warn_explicit(
+                warnings.warn(
                     f"Key {key} not found in checkpoint file. Using provided value of {self.config[key]}.",
                     UserWarning,
                 )
