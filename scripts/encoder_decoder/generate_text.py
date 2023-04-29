@@ -16,6 +16,8 @@ args.add_argument("--model_path", type=str, default="checkpoints/encoder_decoder
 args.add_argument("--model_name", type=str, default=None)
 args.add_argument("--base_model_name", type=str, default="roberta-base")
 
+args = args.parse_args()
+
 assert args.model_name is not None, "Must specify a model name to load"
 
 model_directory = os.path.join(args.model_path, args.model_name)
