@@ -39,10 +39,11 @@ model.to("cuda")
 test_strings = [
     "here is a test string",
     "here is another test string",
-    "hello there big guy",
-    "why is the model behaving in this manner?",
-    "it seems like the model is clipping out the first couple of tokens for some reason, "
-    "not sure why this is happening only on the generate function?? Needs to be investigated.",
+    "May the force be with you",
+    "I am your father",
+    "hello world",
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua",
+    "The model reconstructs the input text quite well. I beleive that we are good to go for the next stage of training.",
 ]
 
 test_string_tokens = tokenizer(test_strings)
