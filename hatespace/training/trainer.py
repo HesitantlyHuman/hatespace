@@ -348,7 +348,7 @@ class HatespaceTrainer:
             configuration_path
         ):
             return False
-        state_dict = torch.load(checkpoint_path)
+        state_dict = torch.load(checkpoint_path, map_location=torch.device("cpu"))
         self.load_state_dict(state_dict=state_dict)
         with open(configuration_path, "r") as f:
             configuration = json.load(f)

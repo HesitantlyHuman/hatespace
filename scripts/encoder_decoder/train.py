@@ -38,8 +38,8 @@ tokenizer = Tokenizer(model_name, 512)
 model = EncoderDecoderModel.from_encoder_decoder_pretrained(model_name, model_name)
 if torch.cuda.is_available():
     DEVICE = "cuda"
-    if torch.cuda.device_count() > 1:
-        model = torch.nn.DataParallel(model)
+    # if torch.cuda.device_count() > 1:
+    model = torch.nn.DataParallel(model)
     print(f"Using {torch.cuda.device_count()} cuda devices...")
 else:
     DEVICE = "cpu"
