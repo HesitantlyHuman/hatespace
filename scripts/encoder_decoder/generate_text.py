@@ -28,8 +28,11 @@ model = EncoderDecoderModel.from_encoder_decoder_pretrained(
     args.base_model_name, args.base_model_name
 )
 state_dict = torch.load(model_filepath)
-state_dict = {key.split("module.")[1]: value for key, value in state_dict.items()}
-model.load_state_dict(state_dict)
+try:
+    model.load_state_dict(state_dict)
+except RuntimeError:
+    state_dict = {k.replace("module.", ""): v for k, v in state_dict.items()}
+    model.load_state_dict(state_dict)
 model.eval()
 model.to("cuda")
 
