@@ -272,6 +272,7 @@ class HatespaceTrainer:
                 callback_frequency=checkpoint_frequency,
             )
             self.state["training_history"].append(training_loss)
+            self.state["step"] = 0
             self.model.eval()
             validation_loss = self.run_epoch(
                 data_loader=validation_dataloader,
