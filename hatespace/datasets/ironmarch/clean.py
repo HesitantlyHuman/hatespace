@@ -142,12 +142,19 @@ CLEANING_FUNCTIONS = [
 
 # TODO: html2text will remove all of the newlines from within a tag. Somehow prevent this, since those newlines have conceptual organization
 def format_post(post: str) -> str:
+    post = post.strip()
+    if post is None or post == "":
+        raise ValueError(f"Post is empty")
+    original_post = post
     if bool(BeautifulSoup(post, "html.parser").find()):
         post = html2text(post)
     post = html.unescape(post)
     for function in CLEANING_FUNCTIONS:
         post = function(post)
-    return post.strip()
+    post = post.strip()
+    if post == "":
+        raise ValueError(f"Post was empty after cleaning: {repr(original_post)}")
+    return post
 
 
 if __name__ == "__main__":

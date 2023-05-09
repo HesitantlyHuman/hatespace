@@ -41,7 +41,6 @@ class IronMarch(Dataset):
         super().__init__(root, download, tasks)
         if side_information is not None:
             self.add_side_information(side_information=side_information)
-        self.format_all()
 
     def prepare_data(self, directory: str) -> List["DataItem"]:
         dm_file_path = os.path.join(directory, self.FILE_NAMES["direct_messages"])
@@ -60,37 +59,45 @@ class IronMarch(Dataset):
     ) -> List[DataItem]:
         data_items = []
         with open(path) as csv_file:
-            reader = csv.reader(csv_file)
-            headers = next(reader)
+            reader = list(csv.reader(csv_file))
+            headers = reader.pop(0)
             id_index, data_index = headers.index(id_column), headers.index(data_column)
 
+            if self.verbose:
+                try:
+                    from tqdm import tqdm
+
+                    progress_bar = tqdm(
+                        total=len(reader),
+                        position=0,
+                        leave=True,
+                        desc=f"Formatting {path}...",
+                    )
+                    empty_posts = 0
+
+                except ModuleNotFoundError:
+                    print("Please install tqdm if you wish to have a progress bar.")
+
             for item in reader:
+                try:
+                    post_data = format_post(str(item[data_index]))
+                except ValueError:
+                    if self.verbose:
+                        empty_posts += 1
+                    continue
                 data_items.append(
                     DataItem(
-                        data=str(item[data_index]),
+                        data=post_data,
                         id=f"{id_prefix}-" + str(item[id_index]),
                         target=None,
                     )
                 )
+
+                if self.verbose:
+                    progress_bar.update(1)
+                    progress_bar.set_postfix({"Empty Posts": empty_posts})
+
         return data_items
-
-    def format_all(self) -> None:
-        if self.verbose:
-            print("Formatting posts...")
-            try:
-                from tqdm import tqdm
-
-                p_bar = tqdm(total=len(self))
-
-                def format_post_with_progress(post: str) -> str:
-                    p_bar.update(1)
-                    return format_post(post)
-
-                self.map(format_post_with_progress)
-                return
-            except ModuleNotFoundError:
-                print("Please install tqdm if you wish to have a progress bar.")
-        self.map(format_post)
 
     def download(self, directory: str) -> None:
         raise AttributeError(
@@ -102,5 +109,6 @@ class IronMarch(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = IronMarch("iron_march_201911")
+    dataset = IronMarch("data/iron_march")
     dataset.summary()
+    print(dataset[32])
